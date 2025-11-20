@@ -37,7 +37,6 @@ typedef enum
   /* LED_Server */
   CUSTOM_STM_LED_C,
   CUSTOM_STM_SWITCH_C,
-  CUSTOM_STM_LONG_C,
 } Custom_STM_Char_Opcode_t;
 
 typedef enum
@@ -48,9 +47,6 @@ typedef enum
   /* My_Switch_Char */
   CUSTOM_STM_SWITCH_C_NOTIFY_ENABLED_EVT,
   CUSTOM_STM_SWITCH_C_NOTIFY_DISABLED_EVT,
-  /* MyLongChar */
-  CUSTOM_STM_LONG_C_NOTIFY_ENABLED_EVT,
-  CUSTOM_STM_LONG_C_NOTIFY_DISABLED_EVT,
   CUSTOM_STM_NOTIFICATION_COMPLETE_EVT,
 
   CUSTOM_STM_BOOT_REQUEST_EVT
@@ -97,7 +93,6 @@ typedef enum
 /* Exported constants --------------------------------------------------------*/
 extern uint16_t SizeLed_C;
 extern uint16_t SizeSwitch_C;
-extern uint16_t SizeLong_C;
 
 /* USER CODE BEGIN EC */
 

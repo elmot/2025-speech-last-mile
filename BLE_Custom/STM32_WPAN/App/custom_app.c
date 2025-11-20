@@ -37,7 +37,6 @@ typedef struct
 {
   /* LED_Server */
   uint8_t               Switch_c_Notification_Status;
-  uint8_t               Long_c_Notification_Status;
   /* USER CODE BEGIN CUSTOM_APP_Context_t */
   uint8_t               SW1_Status;
   uint8_t               SW2_Status;
@@ -146,29 +145,6 @@ void Custom_STM_App_Notification(Custom_STM_App_Notification_evt_t *pNotificatio
       /* USER CODE END CUSTOM_STM_SWITCH_C_NOTIFY_DISABLED_EVT */
       break;
 
-    case CUSTOM_STM_LONG_C_NOTIFY_ENABLED_EVT:
-      /* USER CODE BEGIN CUSTOM_STM_LONG_C_NOTIFY_ENABLED_EVT */
-      APP_DBG_MSG("\r\n\r** CUSTOM_STM_LONG_C_NOTIFY_ENABLED_EVT \n");
-      Custom_App_Context.Long_c_Notification_Status = TOGGLE_ON;
-      ret = aci_gatt_exchange_config(Connection_Handle);
-      if (ret != BLE_STATUS_SUCCESS)
-      {
-        APP_DBG_MSG("aci_gatt_exchange_config failure: reason=0x%02X\n", ret);
-      }
-      else
-      {
-        APP_DBG_MSG("==>> aci_gatt_exchange_config : Success\n");
-      }
-      /* USER CODE END CUSTOM_STM_LONG_C_NOTIFY_ENABLED_EVT */
-      break;
-
-    case CUSTOM_STM_LONG_C_NOTIFY_DISABLED_EVT:
-      /* USER CODE BEGIN CUSTOM_STM_LONG_C_NOTIFY_DISABLED_EVT */
-      APP_DBG_MSG("\r\n\r** CUSTOM_STM_LONG_C_NOTIFY_DISABLED_EVT \n");
-      Custom_App_Context.Long_c_Notification_Status = TOGGLE_OFF;
-      /* USER CODE END CUSTOM_STM_LONG_C_NOTIFY_DISABLED_EVT */
-      break;
-
     case CUSTOM_STM_NOTIFICATION_COMPLETE_EVT:
       /* USER CODE BEGIN CUSTOM_STM_NOTIFICATION_COMPLETE_EVT */
 
@@ -233,8 +209,7 @@ void Custom_APP_Init(void)
 
   UTIL_SEQ_RegTask(1<< CFG_TASK_SW1_BUTTON_PUSHED_ID, UTIL_SEQ_RFU, Custom_Switch_c_Send_Notification);
   
-  Custom_App_Context.Long_c_Notification_Status = TOGGLE_OFF; 
-  Custom_App_Context.Switch_c_Notification_Status = TOGGLE_OFF;   
+  Custom_App_Context.Switch_c_Notification_Status = TOGGLE_OFF;
   Custom_App_Context.SW1_Status = 0; 
   /* USER CODE END CUSTOM_APP_Init */
   return;
