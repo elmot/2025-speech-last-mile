@@ -35,11 +35,9 @@
 /* Private typedef -----------------------------------------------------------*/
 typedef struct
 {
-  /* My_P2P_Server */
+  /* LED_Server */
   uint8_t               Switch_c_Notification_Status;
   uint8_t               Long_c_Notification_Status;
-  /* My_Heart_Rate */
-  uint8_t               Hrs_m_Notification_Status;
   /* USER CODE BEGIN CUSTOM_APP_Context_t */
   uint8_t               SW1_Status;
   uint8_t               SW2_Status;
@@ -88,12 +86,9 @@ uint8_t hr_energy_reset = CUSTOM_STM_HRS_ENERGY_NOT_RESET;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
-/* My_P2P_Server */
+/* LED_Server */
 static void Custom_Switch_c_Update_Char(void);
 static void Custom_Switch_c_Send_Notification(void);
-/* My_Heart_Rate */
-static void Custom_Hrs_m_Update_Char(void);
-static void Custom_Hrs_m_Send_Notification(void);
 
 /* USER CODE BEGIN PFP */
 
@@ -103,7 +98,6 @@ static void Custom_Hrs_m_Send_Notification(void);
 void Custom_STM_App_Notification(Custom_STM_App_Notification_evt_t *pNotification)
 {
   /* USER CODE BEGIN CUSTOM_STM_App_Notification_1 */
-  static uint16_t hr_value, hr_energy;
   tBleStatus        ret = BLE_STATUS_INVALID_PARAMS;
     
   /* USER CODE END CUSTOM_STM_App_Notification_1 */
@@ -113,7 +107,7 @@ void Custom_STM_App_Notification(Custom_STM_App_Notification_evt_t *pNotificatio
 
     /* USER CODE END CUSTOM_STM_App_Notification_Custom_Evt_Opcode */
 
-    /* My_P2P_Server */
+    /* LED_Server */
     case CUSTOM_STM_LED_C_READ_EVT:
       /* USER CODE BEGIN CUSTOM_STM_LED_C_READ_EVT */
        PRINT_MESG_DBG("ACI_GATT_ATTRIBUTE_MODIFIED_VSEVT_CODE My_Led_Char Read\n");
@@ -175,70 +169,6 @@ void Custom_STM_App_Notification(Custom_STM_App_Notification_evt_t *pNotificatio
       /* USER CODE END CUSTOM_STM_LONG_C_NOTIFY_DISABLED_EVT */
       break;
 
-    /* My_Heart_Rate */
-    case CUSTOM_STM_HRS_M_NOTIFY_ENABLED_EVT:
-      /* USER CODE BEGIN CUSTOM_STM_HRS_M_NOTIFY_ENABLED_EVT */
-       PRINT_MESG_DBG("ACI_GATT_ATTRIBUTE_MODIFIED_VSEVT_CODE My_HRS_Meas NOTIFICATION_ENABLED\n");
-
-       Custom_App_Context.Hrs_m_Notification_Status = 1;         /* Hrs_m notification status has been enabled */
-
-       /* Set Heart Rate Measurement value */
-       if ((hr_value >= CUSTOM_STM_HRS_VALUE_MIN) && (hr_value <= CUSTOM_STM_HRS_VALUE_MAX))
-       {
-         hr_value += 1;
-         
-         /* Check if energy expanded has been reset */
-         if (hr_energy_reset == CUSTOM_STM_HRS_ENERGY_RESET)
-         {
-           hr_energy = (uint16_t)CUSTOM_STM_HRS_ENERGY_MIN;
-           hr_energy_reset = (uint8_t)CUSTOM_STM_HRS_ENERGY_NOT_RESET;
-         }
-         else
-         {
-           hr_energy += 1;
-         }
-       }
-       else
-       {
-         hr_value = (uint16_t)CUSTOM_STM_HRS_VALUE_MIN;
-         hr_energy = (uint16_t)CUSTOM_STM_HRS_ENERGY_MIN;
-       }
-       PRINT_MESG_DBG("hr_value : %d, hr_energy : %d\n", hr_value, hr_energy);
-       
-       /* NotifyCharData array size depends on SizeHrs_M defined in custom_stm.c file */
-       NotifyCharData[0] = HRS_HRM_ENERGY_EXPENDED_PRESENT | HRS_HRM_VALUE_FORMAT_UINT16;     /* Heart Rate Value Format is set to UINT16. Units: beats per minute (bpm). Energy Expended field is present. Units: kilo Joules  */
-       NotifyCharData[1] = (uint8_t)hr_value;           /* Heart Rate Measurement Value LSB*/
-       NotifyCharData[2] = (uint8_t)(hr_value >> 8);    /* Heart Rate Measurement Value MSB*/
-       NotifyCharData[3] = (uint8_t)hr_energy;          /* Energy Expended LSB*/
-       NotifyCharData[4] = (uint8_t)(hr_energy >> 8);   /* Energy Expended MSB*/
-       
-       Custom_Hrs_m_Send_Notification();                       
-      /* USER CODE END CUSTOM_STM_HRS_M_NOTIFY_ENABLED_EVT */
-      break;
-
-    case CUSTOM_STM_HRS_M_NOTIFY_DISABLED_EVT:
-      /* USER CODE BEGIN CUSTOM_STM_HRS_M_NOTIFY_DISABLED_EVT */
-      PRINT_MESG_DBG("ACI_GATT_ATTRIBUTE_MODIFIED_VSEVT_CODE My_HRS_Meas NOTIFICATION_DISABLED\n");
-      
-      Custom_App_Context.Hrs_m_Notification_Status = 0;         /* Hrs_m notification status has been disabled */
-      /* USER CODE END CUSTOM_STM_HRS_M_NOTIFY_DISABLED_EVT */
-      break;
-
-    case CUSTOM_STM_HRS_SL_READ_EVT:
-      /* USER CODE BEGIN CUSTOM_STM_HRS_SL_READ_EVT */
-
-      /* USER CODE END CUSTOM_STM_HRS_SL_READ_EVT */
-      break;
-
-    case CUSTOM_STM_HRS_CTRLP_WRITE_EVT:
-      /* USER CODE BEGIN CUSTOM_STM_HRS_CTRLP_WRITE_EVT */
-      PRINT_MESG_DBG("ACI_GATT_WRITE_PERMIT_REQ_VSEVT_CODE My_HRS_CTRL_Point Write\n");
-      
-      /* reset energy expended */
-      hr_energy_reset = CUSTOM_STM_HRS_ENERGY_RESET;
-      /* USER CODE END CUSTOM_STM_HRS_CTRLP_WRITE_EVT */
-      break;
-
     case CUSTOM_STM_NOTIFICATION_COMPLETE_EVT:
       /* USER CODE BEGIN CUSTOM_STM_NOTIFICATION_COMPLETE_EVT */
 
@@ -297,13 +227,9 @@ void Custom_APP_Notification(Custom_App_ConnHandle_Not_evt_t *pNotification)
 void Custom_APP_Init(void)
 {
   /* USER CODE BEGIN CUSTOM_APP_Init */
-  uint8_t sensor_loc;
 
-  sensor_loc = CUSTOM_STM_HRS_BODY_SENSOR_LOCATION_WRIST;
-  Custom_STM_App_Update_Char(CUSTOM_STM_HRS_SL, (uint8_t *) &sensor_loc);       /*initialise My_Sensor_Loc char to wrist */
-  
+
   Custom_Switch_c_Update_Char();
-  Custom_Hrs_m_Update_Char();
 
   UTIL_SEQ_RegTask(1<< CFG_TASK_SW1_BUTTON_PUSHED_ID, UTIL_SEQ_RFU, Custom_Switch_c_Send_Notification);
   
@@ -324,7 +250,7 @@ void Custom_APP_Init(void)
  *
  *************************************************************/
 
-/* My_P2P_Server */
+/* LED_Server */
 __USED void Custom_Switch_c_Update_Char(void) /* Property Read */
 {
   uint8_t updateflag = 0;
@@ -382,46 +308,6 @@ void Custom_Switch_c_Send_Notification(void) /* Property Notification */
   /* USER CODE BEGIN Switch_c_NS_Last*/
 
   /* USER CODE END Switch_c_NS_Last*/
-
-  return;
-}
-
-/* My_Heart_Rate */
-__USED void Custom_Hrs_m_Update_Char(void) /* Property Read */
-{
-  uint8_t updateflag = 0;
-
-  /* USER CODE BEGIN Hrs_m_UC_1*/
-
-  /* USER CODE END Hrs_m_UC_1*/
-
-  if (updateflag != 0)
-  {
-    Custom_STM_App_Update_Char(CUSTOM_STM_HRS_M, (uint8_t *)UpdateCharData);
-  }
-
-  /* USER CODE BEGIN Hrs_m_UC_Last*/
-
-  /* USER CODE END Hrs_m_UC_Last*/
-  return;
-}
-
-void Custom_Hrs_m_Send_Notification(void) /* Property Notification */
-{
-  uint8_t updateflag = 0;
-
-  /* USER CODE BEGIN Hrs_m_NS_1*/
-
-  /* USER CODE END Hrs_m_NS_1*/
-
-  if (updateflag != 0)
-  {
-    Custom_STM_App_Update_Char(CUSTOM_STM_HRS_M, (uint8_t *)NotifyCharData);
-  }
-
-  /* USER CODE BEGIN Hrs_m_NS_Last*/
-
-  /* USER CODE END Hrs_m_NS_Last*/
 
   return;
 }

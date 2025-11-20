@@ -34,14 +34,10 @@ extern "C" {
 /* Exported types ------------------------------------------------------------*/
 typedef enum
 {
-  /* My_P2P_Server */
+  /* LED_Server */
   CUSTOM_STM_LED_C,
   CUSTOM_STM_SWITCH_C,
   CUSTOM_STM_LONG_C,
-  /* My_Heart_Rate */
-  CUSTOM_STM_HRS_M,
-  CUSTOM_STM_HRS_SL,
-  CUSTOM_STM_HRS_CTRLP,
 } Custom_STM_Char_Opcode_t;
 
 typedef enum
@@ -55,13 +51,6 @@ typedef enum
   /* MyLongChar */
   CUSTOM_STM_LONG_C_NOTIFY_ENABLED_EVT,
   CUSTOM_STM_LONG_C_NOTIFY_DISABLED_EVT,
-  /* My_HRS_Meas */
-  CUSTOM_STM_HRS_M_NOTIFY_ENABLED_EVT,
-  CUSTOM_STM_HRS_M_NOTIFY_DISABLED_EVT,
-  /* My_Sensor_Loc */
-  CUSTOM_STM_HRS_SL_READ_EVT,
-  /* My_HRS_CTRL_Point */
-  CUSTOM_STM_HRS_CTRLP_WRITE_EVT,
   CUSTOM_STM_NOTIFICATION_COMPLETE_EVT,
 
   CUSTOM_STM_BOOT_REQUEST_EVT
@@ -109,9 +98,6 @@ typedef enum
 extern uint16_t SizeLed_C;
 extern uint16_t SizeSwitch_C;
 extern uint16_t SizeLong_C;
-extern uint16_t SizeHrs_M;
-extern uint16_t SizeHrs_Sl;
-extern uint16_t SizeHrs_Ctrlp;
 
 /* USER CODE BEGIN EC */
 

@@ -118,8 +118,8 @@
 /**
  * Device name configuration for Generic Access Service
  */
-#define CFG_GAP_DEVICE_NAME             "MY_CUSTOM"
-#define CFG_GAP_DEVICE_NAME_LENGTH      (9)
+#define CFG_GAP_DEVICE_NAME             "ELM_LED"
+#define CFG_GAP_DEVICE_NAME_LENGTH      (7)
 
 /**
  * Define PHY
