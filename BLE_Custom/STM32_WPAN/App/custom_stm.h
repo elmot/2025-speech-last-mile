@@ -35,15 +35,15 @@ extern "C" {
 typedef enum
 {
   /* LED_Server */
-  CUSTOM_STM_LED_C,
+  CUSTOM_STM_B_LED_C,
   CUSTOM_STM_SWITCH_C,
 } Custom_STM_Char_Opcode_t;
 
 typedef enum
 {
-  /* My_LED_Char */
-  CUSTOM_STM_LED_C_READ_EVT,
-  CUSTOM_STM_LED_C_WRITE_NO_RESP_EVT,
+  /* BLUE_LED_Char */
+  CUSTOM_STM_B_LED_C_READ_EVT,
+  CUSTOM_STM_B_LED_C_WRITE_NO_RESP_EVT,
   /* My_Switch_Char */
   CUSTOM_STM_SWITCH_C_NOTIFY_ENABLED_EVT,
   CUSTOM_STM_SWITCH_C_NOTIFY_DISABLED_EVT,
@@ -91,7 +91,7 @@ typedef enum
 /* USER CODE END ET */
 
 /* Exported constants --------------------------------------------------------*/
-extern uint16_t SizeLed_C;
+extern uint16_t SizeB_Led_C;
 extern uint16_t SizeSwitch_C;
 
 /* USER CODE BEGIN EC */
