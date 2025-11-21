@@ -62,6 +62,14 @@ void MX_USART1_UART_Init(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
+#define TRAFFIC_GR_Pin GPIO_PIN_0
+#define TRAFFIC_GR_GPIO_Port GPIOC
+#define TRAFFIC_YL_Pin GPIO_PIN_1
+#define TRAFFIC_YL_GPIO_Port GPIOC
+#define TRAFFIC_GND_Pin GPIO_PIN_0
+#define TRAFFIC_GND_GPIO_Port GPIOA
+#define TRAFFIC_RD_Pin GPIO_PIN_1
+#define TRAFFIC_RD_GPIO_Port GPIOA
 #define SW1_User_Pin GPIO_PIN_4
 #define SW1_User_GPIO_Port GPIOC
 #define SW1_User_EXTI_IRQn EXTI4_IRQn

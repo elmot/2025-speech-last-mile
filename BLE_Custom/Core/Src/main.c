@@ -487,6 +487,26 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOD_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOC, TRAFFIC_GR_Pin|TRAFFIC_YL_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOA, TRAFFIC_GND_Pin|TRAFFIC_RD_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pins : TRAFFIC_GR_Pin TRAFFIC_YL_Pin */
+  GPIO_InitStruct.Pin = TRAFFIC_GR_Pin|TRAFFIC_YL_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : TRAFFIC_GND_Pin TRAFFIC_RD_Pin */
+  GPIO_InitStruct.Pin = TRAFFIC_GND_Pin|TRAFFIC_RD_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
   /*Configure GPIO pin : SW1_User_Pin */
   GPIO_InitStruct.Pin = SW1_User_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
