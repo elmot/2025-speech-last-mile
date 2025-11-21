@@ -119,6 +119,9 @@ uint8_t * USBD_FS_ProductStrDescriptor(USBD_SpeedTypeDef speed, uint16_t *length
 uint8_t * USBD_FS_SerialStrDescriptor(USBD_SpeedTypeDef speed, uint16_t *length);
 uint8_t * USBD_FS_ConfigStrDescriptor(USBD_SpeedTypeDef speed, uint16_t *length);
 uint8_t * USBD_FS_InterfaceStrDescriptor(USBD_SpeedTypeDef speed, uint16_t *length);
+#if (USBD_LPM_ENABLED == 1U)
+uint8_t * USBD_FS_BOSDescriptor(USBD_SpeedTypeDef speed, uint16_t *length);
+#endif
 
 /**
   * @}
@@ -138,6 +141,9 @@ USBD_DescriptorsTypeDef FS_Desc =
 , USBD_FS_SerialStrDescriptor
 , USBD_FS_ConfigStrDescriptor
 , USBD_FS_InterfaceStrDescriptor
+#if (USBD_LPM_ENABLED == 1U)
+, USBD_FS_BOSDescriptor
+#endif
 };
 
 #if defined ( __ICCARM__ ) /* IAR Compiler */
@@ -203,6 +209,46 @@ __ALIGN_BEGIN uint8_t USBD_StringSerial[USB_SIZ_STRING_SERIAL] __ALIGN_END = {
   USB_SIZ_STRING_SERIAL,
   USB_DESC_TYPE_STRING,
 };
+
+/* -------------------- WebUSB BOS Descriptor -------------------- */
+#if (USBD_LPM_ENABLED == 1U)
+/* WebUSB Platform Capability UUID: 3408b638-09a9-47a0-8bfd-a0768815b665 */
+#define WEBUSB_VENDOR_CODE        0x22u  /* Arbitrary vendor code used for WebUSB control requests */
+#define WEBUSB_BCD_VERSION        0x0100u
+#define WEBUSB_LANDING_PAGE_IDX   0x01u  /* Index of the URL descriptor to return via GET_URL */
+
+#if defined ( __ICCARM__ )
+  #pragma data_alignment=4
+#endif
+__ALIGN_BEGIN static const uint8_t USBD_FS_BOSDesc[] __ALIGN_END =
+{
+  /* BOS Descriptor Header */
+  0x05,                 /* bLength */
+  USB_DESC_TYPE_BOS,    /* bDescriptorType */
+  0x1D, 0x00,           /* wTotalLength (5 + 24) = 29 bytes */
+  0x01,                 /* bNumDeviceCaps */
+
+  /* Device Capability: Platform Capability (WebUSB) */
+  0x18,                 /* bLength = 24 */
+  0x10,                 /* bDescriptorType = DEVICE CAPABILITY */
+  0x05,                 /* bDevCapabilityType = PLATFORM */
+  0x00,                 /* bReserved */
+  /* PlatformCapabilityUUID (WebUSB UUID) */
+  0x38, 0xB6, 0x08, 0x34, 0xA9, 0x09, 0xA0, 0x47,
+  0x8B, 0xFD, 0xA0, 0x76, 0x88, 0x15, 0xB6, 0x65,
+  /* bcdVersion */
+  LOBYTE(WEBUSB_BCD_VERSION), HIBYTE(WEBUSB_BCD_VERSION),
+  /* bVendorCode, iLandingPage */
+  WEBUSB_VENDOR_CODE, WEBUSB_LANDING_PAGE_IDX
+};
+
+uint8_t * USBD_FS_BOSDescriptor(USBD_SpeedTypeDef speed, uint16_t *length)
+{
+  UNUSED(speed);
+  *length = sizeof(USBD_FS_BOSDesc);
+  return (uint8_t*)USBD_FS_BOSDesc;
+}
+#endif /* USBD_LPM_ENABLED */
 
 /**
   * @}

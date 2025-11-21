@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>WebUSB Traffic Light Control</title>
+    <style>
+      body { font-family: system-ui, Segoe UI, Roboto, Arial, sans-serif; margin: 2rem; }
+      button { margin: 0.25rem 0.5rem 0.25rem 0; padding: 0.6rem 0.9rem; }
+      fieldset { margin-top: 1rem; }
+      input[type="text"] { width: 14rem; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+      #log { white-space: pre-wrap; background: #111; color: #ddd; padding: 0.75rem; border-radius: 6px; height: 14rem; overflow: auto; }
+      .ok { color: #80ff80; }
+      .err { color: #ff8080; }
+      .muted { opacity: 0.8 }
+      .row { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+    </style>
+  </head>
+  <body>
+    <h1>STM32 USB — WebUSB</h1>
+    <p>
+      This page connects to the board via WebUSB and sends 2 bytes to an OUT endpoint.<br/>
+      Use vendor-specific (WinUSB/libusb) interface or any interface accessible from WebUSB.
+    </p>
+    <p class="muted">Requirements: Chrome/Edge over HTTPS or http://localhost, and a user gesture to pair.</p>
+
+    <div class="row">
+      <button id="pair">Pair device…</button>
+      <button id="connect" disabled>Open</button>
+      <button id="disconnect" disabled>Close</button>
+    </div>
+    <div id="status" class="muted">Not paired</div>
+    <div class="row" id="trafficControls" aria-hidden="true">
+      <div id="traffic" role="group" aria-label="Traffic light">
+        <button id="lamp-red" class="lamp red" aria-pressed="false" aria-label="Red"></button>
+        <button id="lamp-yellow" class="lamp yellow" aria-pressed="false" aria-label="Yellow"></button>
+        <button id="lamp-green" class="lamp green" aria-pressed="false" aria-label="Green"></button>
+      </div>
+      <div style="margin-top:0.5rem;font-size:0.9rem;color:#666;">
+        Byte preview: <code id="bytePreview">0x00</code>
+      </div>
+    </div>
+
+
+    <h3>Log</h3>
+    <div id="log" aria-live="polite"></div>
+
+    <script>
+      // Update these IDs if you change descriptors (see USB_DEVICE/App/usbd_desc.c)
+      const VID = 1155;   // 0x0483 (STMicroelectronics)
+      const PID = 22352;  // from USBD_PID_FS
+
+      // Behavior flags (can be overridden via URL, e.g., ?auto=1&reopen=1&if=0&epout=1&epin=1&cfg=1)
+      const params = new URLSearchParams(location.search);
+      const AUTO_OPEN = params.get('auto') !== '0';      // true by default
+      const AUTO_REOPEN_ON_CONNECT = params.get('reopen') !== '0'; // true by default
+      let INTERFACE_NUMBER = parseInt(params.get('if') ?? '0', 10) || 0;
+      let ENDPOINT_OUT = parseInt(params.get('epout') ?? '1', 10) || 1;
+      let ENDPOINT_IN = parseInt(params.get('epin') ?? '1', 10) || 1;
+      let CONFIG_NUMBER = parseInt(params.get('cfg') ?? '1', 10) || 1;
+
+      const el = (id) => document.getElementById(id);
+      const status = el('status');
+      const logEl = el('log');
+      const btnPair = el('pair');
+      const btnOpen = el('connect');
+      const btnClose = el('disconnect');
+      const trafficControls = el('trafficControls');
+      const ifNum = el('ifNum');
+      const epOut = el('epOut');
+      const epIn = el('epIn');
+      const cfgNum = el('cfgNum');
+      const lampRed = el('lamp-red');
+      const lampYellow = el('lamp-yellow');
+      const lampGreen = el('lamp-green');
+      const bytePreview = el('bytePreview');
+
+      // Bit mapping expected by firmware (see Core/Src/main.c):
+      // bit0 = green, bit1 = yellow, bit2 = red
+      let stateBits = 0; // current traffic light state (0..7)
+
+      let device = null;
+      let inReaderAbort = null; // controller to stop IN polling
+
+      function log(msg, cls = '') {
+        const time = new Date().toLocaleTimeString();
+        const line = document.createElement('div');
+        if (cls) line.className = cls;
+        line.textContent = `[${time}] ${msg}`;
+        logEl.appendChild(line);
+        logEl.scrollTop = logEl.scrollHeight;
+      }
+
+      function setUI(phase) {
+        const paired = !!device;
+        const opened = paired && device.opened;
+        btnOpen.disabled = !paired || opened;
+        btnClose.disabled = !paired || !opened;
+        // Enable/disable traffic controls
+        [lampRed, lampYellow, lampGreen].forEach(b => { if (b) b.disabled = !opened; });
+        if (trafficControls) trafficControls.setAttribute('aria-hidden', opened ? 'false' : 'true');
+        status.textContent = opened
+          ? `Connected to ${device.productName} (${device.vendorId.toString(16)}:${device.productId.toString(16)})`
+          : (paired ? `Paired: ${device.productName}` : 'Not paired');
+        renderLamps();
+      }
+
+      function hexByteToNum(txt) {
+        const n = parseInt(txt.trim(), 16);
+        if (Number.isNaN(n) || n < 0 || n > 0xFF) throw new Error('hex byte expected (00-FF)');
+        return n;
+      }
+
+      async function pair() {
+        try {
+          const dev = await navigator.usb.requestDevice({
+            filters: [ { vendorId: VID, productId: PID } ]
+          });
+          if (!dev) return;
+          device = dev;
+          log(`Paired: ${dev.productName} (VID:0x${dev.vendorId.toString(16)}, PID:0x${dev.productId.toString(16)})`, 'ok');
+          setUI();
+          if (AUTO_OPEN) {
+            await open();
+          }
+        } catch (e) {
+          log(`Pair canceled or failed: ${e.message}`, 'err');
+        }
+      }
+
+      async function open() {
+        if (!device) return;
+        try {
+          // Apply any UI changes to interface/endpoint selection
+          if (ifNum) INTERFACE_NUMBER = parseInt(ifNum.value || `${INTERFACE_NUMBER}`, 10) || INTERFACE_NUMBER;
+          if (epOut) ENDPOINT_OUT = parseInt(epOut.value || `${ENDPOINT_OUT}`, 10) || ENDPOINT_OUT;
+          if (epIn) ENDPOINT_IN = parseInt(epIn.value || `${ENDPOINT_IN}`, 10) || ENDPOINT_IN;
+          if (cfgNum) CONFIG_NUMBER = parseInt(cfgNum.value || `${CONFIG_NUMBER}`, 10) || CONFIG_NUMBER;
+
+          await device.open();
+          if (!device.configuration) {
+            await device.selectConfiguration(CONFIG_NUMBER);
+          } else if (device.configuration?.configurationValue !== CONFIG_NUMBER) {
+            await device.selectConfiguration(CONFIG_NUMBER);
+          }
+          await device.claimInterface(INTERFACE_NUMBER);
+
+          // Optional: start a simple IN polling loop to log any incoming data
+          try {
+            const controller = new AbortController();
+            inReaderAbort = controller;
+            (async () => {
+              while (device && device.opened && !controller.signal.aborted) {
+                try {
+                  const res = await device.transferIn(ENDPOINT_IN, 64);
+                  if (res && res.data) {
+                    const arr = Array.from(new Uint8Array(res.data.buffer));
+                    log(`IN: [${arr.map(v=>v.toString(16).padStart(2,'0')).join(' ')}]`);
+                  }
+                } catch (e) {
+                  if (!controller.signal.aborted) log(`IN failed: ${e.message}`, 'err');
+                  break;
+                }
+              }
+            })();
+          } catch {}
+
+          setUI();
+          log(`Device opened (cfg=${CONFIG_NUMBER}, if=${INTERFACE_NUMBER}, epOut=${ENDPOINT_OUT}, epIn=${ENDPOINT_IN})`, 'ok');
+        } catch (e) {
+          log(`Open failed: ${e.message}`, 'err');
+        }
+      }
+
+      async function close() {
+        if (!device) return;
+        try {
+          try { if (inReaderAbort) inReaderAbort.abort(); } catch {}
+          try { await device.releaseInterface(INTERFACE_NUMBER); } catch {}
+          await device.close();
+          setUI();
+          log('Device closed', 'ok');
+        } catch (e) {
+          log(`Close failed: ${e.message}`, 'err');
+        }
+      }
+
+      async function sendState() {
+        if (!device || !device.opened) return;
+        try {
+          const b0 = stateBits & 0xFF;
+          const b1 = 0x00; // firmware ORs the two bytes; we only use the first
+          const data = new Uint8Array([b0, b1]);
+          await device.transferOut(ENDPOINT_OUT, data);
+          log(`OUT: [${[b0,b1].map(v=>v.toString(16).padStart(2,'0')).join(' ')}]`, 'ok');
+        } catch (e) {
+          log(`Send failed: ${e.message}`, 'err');
+        }
+      }
+
+      function renderLamps() {
+        if (!bytePreview) return;
+        bytePreview.textContent = `0x${stateBits.toString(16).padStart(2,'0')}`;
+        const on = (el, isOn) => {
+          if (!el) return;
+          el.classList.toggle('on', !!isOn);
+          el.setAttribute('aria-pressed', isOn ? 'true' : 'false');
+        };
+        on(lampGreen, (stateBits & 0x1) !== 0);
+        on(lampYellow, (stateBits & 0x2) !== 0);
+        on(lampRed, (stateBits & 0x4) !== 0);
+      }
+
+      function toggleLamp(color) {
+        // Clicking a color toggles it independently of the others
+        const bit = color === 'red' ? 0x4 : color === 'yellow' ? 0x2 : 0x1;
+        stateBits ^= bit; // flip just this lamp's bit
+        renderLamps();
+        sendState();
+      }
+
+      // Wire up UI
+      btnPair.addEventListener('click', pair);
+      btnOpen.addEventListener('click', open);
+      btnClose.addEventListener('click', close);
+      if (lampRed) lampRed.addEventListener('click', () => toggleLamp('red'));
+      if (lampYellow) lampYellow.addEventListener('click', () => toggleLamp('yellow'));
+      if (lampGreen) lampGreen.addEventListener('click', () => toggleLamp('green'));
+
+      // Try to auto-reuse previously granted devices and auto-open
+      (async function init() {
+        if (!('usb' in navigator)) {
+          log('WebUSB not supported in this browser.', 'err');
+          status.textContent = 'WebUSB unsupported';
+          return;
+        }
+        // Initialize UI fields from params
+        if (ifNum) ifNum.value = String(INTERFACE_NUMBER);
+        if (epOut) epOut.value = String(ENDPOINT_OUT);
+        if (epIn) epIn.value = String(ENDPOINT_IN);
+        if (cfgNum) cfgNum.value = String(CONFIG_NUMBER);
+        try {
+          const devices = await navigator.usb.getDevices();
+          const dev = devices.find(d => d.vendorId === VID && d.productId === PID);
+          if (dev) {
+            device = dev;
+            setUI();
+            log(`Found previously granted device: ${dev.productName}`);
+            if (AUTO_OPEN && !dev.opened) {
+              await open();
+            }
+          } else {
+            log('No previously granted matching device found. Click "Pair device…" once to grant access.');
+          }
+        } catch (e) {
+          log(`Auto-detect failed: ${e.message}`, 'err');
+        }
+
+        // When a matching device is connected later, optionally auto-select and open it.
+        navigator.usb.addEventListener('connect', async (ev) => {
+          const d = ev.device;
+          if (d.vendorId === VID && d.productId === PID) {
+            device = d;
+            setUI();
+            log(`Device connected: ${d.productName}`);
+            if (AUTO_REOPEN_ON_CONNECT) {
+              try { await open(); } catch (e) { /* already logged in open() */ }
+            }
+          }
+        });
+
+        navigator.usb.addEventListener('disconnect', (ev) => {
+          if (device && ev.device === device) {
+            log('Device disconnected');
+            device = null;
+            setUI();
+          }
+        });
+      })();
+    </script>
+
+    <hr />
+    <style>
+      /* Traffic light styles */
+      #traffic {
+        width: 120px;
+        padding: 14px 14px;
+        background: linear-gradient(180deg, #333, #111);
+        border-radius: 16px;
+        border: 2px solid #0008;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+        box-shadow: inset 0 2px 8px #0008, 0 8px 16px #0006;
+      }
+      .lamp {
+        width: 72px;
+        height: 72px;
+        border-radius: 50%;
+        border: 2px solid #000a;
+        background: radial-gradient(circle at 30% 30%, #555, #222);
+        box-shadow: inset 0 8px 16px #000a, 0 2px 6px #0008;
+        cursor: pointer;
+      }
+      .lamp:disabled { cursor: not-allowed; opacity: 0.6; }
+      .lamp.red.on { background: radial-gradient(circle at 30% 30%, #ff8a80, #d50000); box-shadow: 0 0 12px 6px #ff1744aa, inset 0 8px 16px #000a; }
+      .lamp.yellow.on { background: radial-gradient(circle at 30% 30%, #ffe57f, #ffab00); box-shadow: 0 0 12px 6px #ffd600aa, inset 0 8px 16px #000a; }
+      .lamp.green.on { background: radial-gradient(circle at 30% 30%, #a5d6a7, #00c853); box-shadow: 0 0 12px 6px #00e676aa, inset 0 8px 16px #000a; }
+      .lamp.red { background: radial-gradient(circle at 30% 30%, #733, #300); }
+      .lamp.yellow { background: radial-gradient(circle at 30% 30%, #664, #331); }
+      .lamp.green { background: radial-gradient(circle at 30% 30%, #364, #132); }
+    </style>
+  </body>
+  </html>

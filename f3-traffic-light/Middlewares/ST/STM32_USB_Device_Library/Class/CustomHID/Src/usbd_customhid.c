@@ -46,6 +46,20 @@ EndBSPDependencies */
 #include "usbd_customhid.h"
 #include "usbd_ctlreq.h"
 
+/* --- WebUSB minimal support (Vendor control + URL descriptor) --- */
+#define WEBUSB_VENDOR_CODE       0x22u
+#define WEBUSB_REQ_GET_URL       0x0002u
+/* Landing page URL (index 1). Scheme 0x01 = https. Change as needed. */
+static const char* const WEBUSB_URL_STR = "elmot.xyz";
+/* URL descriptor: bLength, bDescriptorType(0x03), bScheme, URL... */
+static const uint8_t WEBUSB_URL_DESCRIPTOR[] = {
+  (uint8_t)(3 + sizeof("elmot.xyz") - 1), /* bLength */
+  0x03, /* bDescriptorType = WebUSB URL */
+  0x01, /* bScheme = https */
+  /* URL bytes */
+  'e','l','m','o','t','.','x','y','z'
+};
+
 
 /** @addtogroup STM32_USB_DEVICE_LIBRARY
   * @{
@@ -154,7 +168,7 @@ __ALIGN_BEGIN static uint8_t USBD_CUSTOM_HID_CfgFSDesc[USB_CUSTOM_HID_CONFIG_DES
   0x00,         /*bInterfaceNumber: Number of Interface*/
   0x00,         /*bAlternateSetting: Alternate setting*/
   0x02,         /*bNumEndpoints*/
-  0x03,         /*bInterfaceClass: CUSTOM_HID*/
+  0xFF,         /*bInterfaceClass: CUSTOM_HID*/
   0x00,         /*bInterfaceSubClass : 1=BOOT, 0=no boot*/
   0x00,         /*nInterfaceProtocol : 0=none, 1=keyboard, 2=mouse*/
   0,            /*iInterface: Index of string descriptor*/
@@ -439,6 +453,20 @@ static uint8_t  USBD_CUSTOM_HID_Setup(USBD_HandleTypeDef *pdev,
 
   switch (req->bmRequest & USB_REQ_TYPE_MASK)
   {
+    case USB_REQ_TYPE_VENDOR:
+      /* Handle WebUSB control requests at device level */
+      if (req->bRequest == WEBUSB_VENDOR_CODE)
+      {
+        if (req->wIndex == WEBUSB_REQ_GET_URL)
+        {
+          uint16_t send_len = MIN((uint16_t)sizeof(WEBUSB_URL_DESCRIPTOR), req->wLength);
+          USBD_CtlSendData(pdev, (uint8_t*)WEBUSB_URL_DESCRIPTOR, send_len);
+          return USBD_OK;
+        }
+      }
+      USBD_CtlError(pdev, req);
+      ret = USBD_FAIL;
+      break;
     case USB_REQ_TYPE_CLASS :
       switch (req->bRequest)
       {

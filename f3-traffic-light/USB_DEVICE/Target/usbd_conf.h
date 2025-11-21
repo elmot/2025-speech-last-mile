@@ -78,6 +78,11 @@
 /*---------- -----------*/
 #define CUSTOM_HID_FS_BINTERVAL     0x5U
 
+/* Enable BOS descriptor handling in ST USB stack (required for WebUSB) */
+#ifndef USBD_LPM_ENABLED
+#define USBD_LPM_ENABLED 1U
+#endif
+
 /****************************************/
 /* #define for FS and HS identification */
 #define DEVICE_FS 		0
