@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>STM32 Custom HID — WebHID Sender</title>
+    <title>WebHID Traffic Light Control</title>
     <style>
       body { font-family: system-ui, Segoe UI, Roboto, Arial, sans-serif; margin: 2rem; }
       button { margin: 0.25rem 0.5rem 0.25rem 0; padding: 0.6rem 0.9rem; }
@@ -28,25 +28,19 @@
       <button id="pair">Pair device…</button>
       <button id="connect" disabled>Open</button>
       <button id="disconnect" disabled>Close</button>
-      <span id="status" class="muted">Not paired</span>
+    </div>
+    <div id="status" class="muted">Not paired</div>
+    <div class="row" id="trafficControls" aria-hidden="true">
+      <div id="traffic" role="group" aria-label="Traffic light">
+        <button id="lamp-red" class="lamp red" aria-pressed="false" aria-label="Red"></button>
+        <button id="lamp-yellow" class="lamp yellow" aria-pressed="false" aria-label="Yellow"></button>
+        <button id="lamp-green" class="lamp green" aria-pressed="false" aria-label="Green"></button>
+      </div>
+      <div style="margin-top:0.5rem;font-size:0.9rem;color:#666;">
+        Byte preview: <code id="bytePreview">0x00</code>
+      </div>
     </div>
 
-    <fieldset>
-      <legend>Send report (2 bytes, hex)</legend>
-      <div class="row">
-        <label for="b0">Byte 0:</label>
-        <input id="b0" type="text" value="01" maxlength="2" />
-        <label for="b1">Byte 1:</label>
-        <input id="b1" type="text" value="02" maxlength="2" />
-        <button id="send" disabled>Send</button>
-      </div>
-      <div class="row">
-        Quick:
-        <button data-quick="00 00" class="quick" disabled>00 00</button>
-        <button data-quick="01 00" class="quick" disabled>01 00</button>
-        <button data-quick="02 01" class="quick" disabled>02 01</button>
-      </div>
-    </fieldset>
 
     <h3>Log</h3>
     <div id="log" aria-live="polite"></div>
@@ -74,10 +68,15 @@
       const btnPair = el('pair');
       const btnOpen = el('connect');
       const btnClose = el('disconnect');
-      const btnSend = el('send');
-      const quickBtns = Array.from(document.querySelectorAll('.quick'));
-      const inB0 = el('b0');
-      const inB1 = el('b1');
+      const trafficControls = el('trafficControls');
+      const lampRed = el('lamp-red');
+      const lampYellow = el('lamp-yellow');
+      const lampGreen = el('lamp-green');
+      const bytePreview = el('bytePreview');
+
+      // Bit mapping expected by firmware (see Core/Src/main.c):
+      // bit0 = green, bit1 = yellow, bit2 = red
+      let stateBits = 0; // current traffic light state (0..7)
 
       let device = null;
 
@@ -95,11 +94,13 @@
         const opened = paired && device.opened;
         btnOpen.disabled = !paired || opened;
         btnClose.disabled = !paired || !opened;
-        btnSend.disabled = !opened;
-        quickBtns.forEach(b => b.disabled = !opened);
+        // Enable/disable traffic controls
+        [lampRed, lampYellow, lampGreen].forEach(b => { if (b) b.disabled = !opened; });
+        if (trafficControls) trafficControls.setAttribute('aria-hidden', opened ? 'false' : 'true');
         status.textContent = opened
           ? `Connected to ${device.productName} (${device.vendorId.toString(16)}:${device.productId.toString(16)})`
           : (paired ? `Paired: ${device.productName}` : 'Not paired');
+        renderLamps();
       }
 
       function hexByteToNum(txt) {
@@ -152,19 +153,12 @@
         }
       }
 
-      async function sendQuick(ev) {
-        const [h0, h1] = ev.target.getAttribute('data-quick').split(' ');
-        inB0.value = h0; inB1.value = h1;
-        await send();
-      }
-
-      async function send() {
+      async function sendState() {
         if (!device || !device.opened) return;
         try {
-          const b0 = hexByteToNum(inB0.value);
-          const b1 = hexByteToNum(inB1.value);
+          const b0 = stateBits & 0xFF;
+          const b1 = 0x00; // firmware ORs the two bytes; we only use the first
           const data = new Uint8Array([b0, b1]);
-          if (data.byteLength !== REPORT_LEN_OUT) throw new Error(`Report must be ${REPORT_LEN_OUT} bytes`);
           await device.sendReport(REPORT_ID, data);
           log(`OUT report (id=${REPORT_ID}) [${[b0,b1].map(v=>v.toString(16).padStart(2,'0')).join(' ')}]`, 'ok');
         } catch (e) {
@@ -172,12 +166,34 @@
         }
       }
 
+      function renderLamps() {
+        if (!bytePreview) return;
+        bytePreview.textContent = `0x${stateBits.toString(16).padStart(2,'0')}`;
+        const on = (el, isOn) => {
+          if (!el) return;
+          el.classList.toggle('on', !!isOn);
+          el.setAttribute('aria-pressed', isOn ? 'true' : 'false');
+        };
+        on(lampGreen, (stateBits & 0x1) !== 0);
+        on(lampYellow, (stateBits & 0x2) !== 0);
+        on(lampRed, (stateBits & 0x4) !== 0);
+      }
+
+      function toggleLamp(color) {
+        // Clicking a color toggles it independently of the others
+        const bit = color === 'red' ? 0x4 : color === 'yellow' ? 0x2 : 0x1;
+        stateBits ^= bit; // flip just this lamp's bit
+        renderLamps();
+        sendState();
+      }
+
       // Wire up UI
       btnPair.addEventListener('click', pair);
       btnOpen.addEventListener('click', open);
       btnClose.addEventListener('click', close);
-      btnSend.addEventListener('click', send);
-      quickBtns.forEach(b => b.addEventListener('click', sendQuick));
+      if (lampRed) lampRed.addEventListener('click', () => toggleLamp('red'));
+      if (lampYellow) lampYellow.addEventListener('click', () => toggleLamp('yellow'));
+      if (lampGreen) lampGreen.addEventListener('click', () => toggleLamp('green'));
 
       // Try to auto-reuse previously granted devices and auto-open
       (async function init() {
@@ -227,14 +243,36 @@
     </script>
 
     <hr />
-    <details>
-      <summary>Troubleshooting</summary>
-      <ul>
-        <li>Serve this file over HTTPS or from http://localhost. Opening from the file system (file://) is blocked.</li>
-        <li>Close any app that already has the HID interface open (only one client at a time).</li>
-        <li>If you change the device’s VID/PID or report descriptor, update the constants near the top of this file.</li>
-      </ul>
-    </details>
-
+    <style>
+      /* Traffic light styles */
+      #traffic {
+        width: 120px;
+        padding: 14px 14px;
+        background: linear-gradient(180deg, #333, #111);
+        border-radius: 16px;
+        border: 2px solid #0008;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+        box-shadow: inset 0 2px 8px #0008, 0 8px 16px #0006;
+      }
+      .lamp {
+        width: 72px;
+        height: 72px;
+        border-radius: 50%;
+        border: 2px solid #000a;
+        background: radial-gradient(circle at 30% 30%, #555, #222);
+        box-shadow: inset 0 8px 16px #000a, 0 2px 6px #0008;
+        cursor: pointer;
+      }
+      .lamp:disabled { cursor: not-allowed; opacity: 0.6; }
+      .lamp.red.on { background: radial-gradient(circle at 30% 30%, #ff8a80, #d50000); box-shadow: 0 0 12px 6px #ff1744aa, inset 0 8px 16px #000a; }
+      .lamp.yellow.on { background: radial-gradient(circle at 30% 30%, #ffe57f, #ffab00); box-shadow: 0 0 12px 6px #ffd600aa, inset 0 8px 16px #000a; }
+      .lamp.green.on { background: radial-gradient(circle at 30% 30%, #a5d6a7, #00c853); box-shadow: 0 0 12px 6px #00e676aa, inset 0 8px 16px #000a; }
+      .lamp.red { background: radial-gradient(circle at 30% 30%, #733, #300); }
+      .lamp.yellow { background: radial-gradient(circle at 30% 30%, #664, #331); }
+      .lamp.green { background: radial-gradient(circle at 30% 30%, #364, #132); }
+    </style>
   </body>
   </html>
