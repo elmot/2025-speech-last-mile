@@ -65,16 +65,12 @@ void MX_USART1_UART_Init(void);
 #define SW1_User_Pin GPIO_PIN_4
 #define SW1_User_GPIO_Port GPIOC
 #define SW1_User_EXTI_IRQn EXTI4_IRQn
-#define Red_Led_Pin GPIO_PIN_1
-#define Red_Led_GPIO_Port GPIOB
 #define SW2_User_Pin GPIO_PIN_0
 #define SW2_User_GPIO_Port GPIOD
 #define SW2_User_EXTI_IRQn EXTI0_IRQn
 #define SW3_User_Pin GPIO_PIN_1
 #define SW3_User_GPIO_Port GPIOD
 #define SW3_User_EXTI_IRQn EXTI1_IRQn
-#define Blue_Led_Pin GPIO_PIN_5
-#define Blue_Led_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
 

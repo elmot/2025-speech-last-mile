@@ -119,8 +119,9 @@ void Custom_STM_App_Notification(Custom_STM_App_Notification_evt_t *pNotificatio
       APP_DBG_MSG("\r\n\r** CUSTOM_STM_B_LED_C_WRITE_NO_RESP_EVT \n");
       APP_DBG_MSG("\r\n\r** Write Data: 0x%02X %02X \n", pNotification->DataTransfered.pPayload[0], pNotification->DataTransfered.pPayload[1]);
       uint8_t orVal = pNotification->DataTransfered.pPayload[1] | pNotification->DataTransfered.pPayload[0];
-      HAL_GPIO_WritePin(Blue_Led_GPIO_Port, Blue_Led_Pin, (orVal & 1) ? GPIO_PIN_SET : GPIO_PIN_RESET);
-      HAL_GPIO_WritePin(Red_Led_GPIO_Port, Red_Led_Pin, (orVal & 2) ? GPIO_PIN_SET : GPIO_PIN_RESET);
+      if (orVal & 1) BSP_LED_On(LED_BLUE); else BSP_LED_Off(LED_BLUE);
+      if (orVal & 2) BSP_LED_On(LED_GREEN); else BSP_LED_Off(LED_GREEN);
+      if (orVal & 4) BSP_LED_On(LED_RED); else BSP_LED_Off(LED_RED);
       /* USER CODE END CUSTOM_STM_B_LED_C_WRITE_NO_RESP_EVT */
       break;
 
