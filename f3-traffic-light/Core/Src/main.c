@@ -55,7 +55,7 @@ static void MX_GPIO_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
+uint8_t led_state = 0;
 /* USER CODE END 0 */
 
 /**
@@ -97,7 +97,15 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
-
+    GPIO_PinState green = (led_state & 1) ? GPIO_PIN_SET : GPIO_PIN_RESET;
+    GPIO_PinState yellow = (led_state & 2) ? GPIO_PIN_SET : GPIO_PIN_RESET;
+    GPIO_PinState red = (led_state & 4) ? GPIO_PIN_SET : GPIO_PIN_RESET;
+    HAL_GPIO_WritePin(LD6_GPIO_Port,LD6_Pin, green);
+    HAL_GPIO_WritePin(LD7_GPIO_Port,LD7_Pin, green);
+    HAL_GPIO_WritePin(LD5_GPIO_Port,LD5_Pin, yellow);
+    HAL_GPIO_WritePin(LD8_GPIO_Port,LD8_Pin, yellow);
+    HAL_GPIO_WritePin(LD3_GPIO_Port,LD3_Pin, red);
+    HAL_GPIO_WritePin(LD10_GPIO_Port,LD10_Pin, red);
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */

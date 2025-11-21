@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>STM32 Custom HID — WebHID Sender</title>
+    <style>
+      body { font-family: system-ui, Segoe UI, Roboto, Arial, sans-serif; margin: 2rem; }
+      button { margin: 0.25rem 0.5rem 0.25rem 0; padding: 0.6rem 0.9rem; }
+      fieldset { margin-top: 1rem; }
+      input[type="text"] { width: 14rem; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+      #log { white-space: pre-wrap; background: #111; color: #ddd; padding: 0.75rem; border-radius: 6px; height: 14rem; overflow: auto; }
+      .ok { color: #80ff80; }
+      .err { color: #ff8080; }
+      .muted { opacity: 0.8 }
+      .row { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+    </style>
+  </head>
+  <body>
+    <h1>STM32 Custom HID — WebHID</h1>
+    <p>
+      This page connects to the board’s Custom HID interface and sends 2-byte OUT reports.<br/>
+      Your firmware’s HID report descriptor exposes 2-byte IN/OUT reports with no report ID.
+    </p>
+    <p class="muted">Requirements: Chrome/Edge 89+ over HTTPS or http://localhost, and a user gesture to pair.</p>
+
+    <div class="row">
+      <button id="pair">Pair device…</button>
+      <button id="connect" disabled>Open</button>
+      <button id="disconnect" disabled>Close</button>
+      <span id="status" class="muted">Not paired</span>
+    </div>
+
+    <fieldset>
+      <legend>Send report (2 bytes, hex)</legend>
+      <div class="row">
+        <label for="b0">Byte 0:</label>
+        <input id="b0" type="text" value="01" maxlength="2" />
+        <label for="b1">Byte 1:</label>
+        <input id="b1" type="text" value="02" maxlength="2" />
+        <button id="send" disabled>Send</button>
+      </div>
+      <div class="row">
+        Quick:
+        <button data-quick="00 00" class="quick" disabled>00 00</button>
+        <button data-quick="01 00" class="quick" disabled>01 00</button>
+        <button data-quick="02 01" class="quick" disabled>02 01</button>
+      </div>
+    </fieldset>
+
+    <h3>Log</h3>
+    <div id="log" aria-live="polite"></div>
+
+    <script>
+      // Update these if you change descriptors (see USB_DEVICE/App/usbd_desc.c)
+      const VID = 1155;   // 0x0483 (STMicroelectronics)
+      const PID = 22352;  // from USBD_PID_FS
+
+      /**
+       * The device’s report descriptor has no Report ID and defines 2-byte IN/OUT reports.
+       * WebHID requires a reportId argument; use 0 when the descriptor has no IDs.
+       */
+      const REPORT_ID = 0;         // no report ID in descriptor
+      const REPORT_LEN_OUT = 2;    // two bytes
+
+      const el = (id) => document.getElementById(id);
+      const status = el('status');
+      const logEl = el('log');
+      const btnPair = el('pair');
+      const btnOpen = el('connect');
+      const btnClose = el('disconnect');
+      const btnSend = el('send');
+      const quickBtns = Array.from(document.querySelectorAll('.quick'));
+      const inB0 = el('b0');
+      const inB1 = el('b1');
+
+      let device = null;
+
+      function log(msg, cls = '') {
+        const time = new Date().toLocaleTimeString();
+        const line = document.createElement('div');
+        if (cls) line.className = cls;
+        line.textContent = `[${time}] ${msg}`;
+        logEl.appendChild(line);
+        logEl.scrollTop = logEl.scrollHeight;
+      }
+
+      function setUI(phase) {
+        const paired = !!device;
+        const opened = paired && device.opened;
+        btnOpen.disabled = !paired || opened;
+        btnClose.disabled = !paired || !opened;
+        btnSend.disabled = !opened;
+        quickBtns.forEach(b => b.disabled = !opened);
+        status.textContent = opened
+          ? `Connected to ${device.productName} (${device.vendorId.toString(16)}:${device.productId.toString(16)})`
+          : (paired ? `Paired: ${device.productName}` : 'Not paired');
+      }
+
+      function hexByteToNum(txt) {
+        const n = parseInt(txt.trim(), 16);
+        if (Number.isNaN(n) || n < 0 || n > 0xFF) throw new Error('hex byte expected (00-FF)');
+        return n;
+      }
+
+      async function pair() {
+        try {
+          const [dev] = await navigator.hid.requestDevice({
+            filters: [ { vendorId: VID, productId: PID } ]
+          });
+          if (!dev) return;
+          device = dev;
+          log(`Paired: ${dev.productName} (VID:0x${dev.vendorId.toString(16)}, PID:0x${dev.productId.toString(16)})`, 'ok');
+          setUI();
+        } catch (e) {
+          log(`Pair canceled or failed: ${e.message}`, 'err');
+        }
+      }
+
+      async function open() {
+        if (!device) return;
+        try {
+          await device.open();
+          device.addEventListener('inputreport', (ev) => {
+            const { data, reportId } = ev;
+            const arr = Array.from(new Uint8Array(data.buffer));
+            log(`IN report (id=${reportId}) [${arr.map(v=>v.toString(16).padStart(2,'0')).join(' ')}]`);
+          });
+          setUI();
+          log('Device opened', 'ok');
+        } catch (e) {
+          log(`Open failed: ${e.message}`, 'err');
+        }
+      }
+
+      async function close() {
+        if (!device) return;
+        try {
+          await device.close();
+          setUI();
+          log('Device closed', 'ok');
+        } catch (e) {
+          log(`Close failed: ${e.message}`, 'err');
+        }
+      }
+
+      async function sendQuick(ev) {
+        const [h0, h1] = ev.target.getAttribute('data-quick').split(' ');
+        inB0.value = h0; inB1.value = h1;
+        await send();
+      }
+
+      async function send() {
+        if (!device || !device.opened) return;
+        try {
+          const b0 = hexByteToNum(inB0.value);
+          const b1 = hexByteToNum(inB1.value);
+          const data = new Uint8Array([b0, b1]);
+          if (data.byteLength !== REPORT_LEN_OUT) throw new Error(`Report must be ${REPORT_LEN_OUT} bytes`);
+          await device.sendReport(REPORT_ID, data);
+          log(`OUT report (id=${REPORT_ID}) [${[b0,b1].map(v=>v.toString(16).padStart(2,'0')).join(' ')}]`, 'ok');
+        } catch (e) {
+          log(`Send failed: ${e.message}`, 'err');
+        }
+      }
+
+      // Wire up UI
+      btnPair.addEventListener('click', pair);
+      btnOpen.addEventListener('click', open);
+      btnClose.addEventListener('click', close);
+      btnSend.addEventListener('click', send);
+      quickBtns.forEach(b => b.addEventListener('click', sendQuick));
+
+      // Try to auto-reuse previously granted devices
+      (async function init() {
+        if (!('hid' in navigator)) {
+          log('WebHID not supported in this browser.', 'err');
+          status.textContent = 'WebHID unsupported';
+          return;
+        }
+        const devices = await navigator.hid.getDevices();
+        const dev = devices.find(d => d.vendorId === VID && d.productId === PID);
+        if (dev) {
+          device = dev;
+          setUI();
+          log(`Found previously granted device: ${dev.productName}`);
+        }
+      })();
+    </script>
+
+    <hr />
+    <details>
+      <summary>Troubleshooting</summary>
+      <ul>
+        <li>Serve this file over HTTPS or from http://localhost. Opening from the file system (file://) is blocked.</li>
+        <li>Close any app that already has the HID interface open (only one client at a time).</li>
+        <li>If you change the device’s VID/PID or report descriptor, update the constants near the top of this file.</li>
+      </ul>
+    </details>
+
+  </body>
+  </html>

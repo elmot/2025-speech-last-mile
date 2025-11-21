@@ -123,6 +123,7 @@ __ALIGN_BEGIN static uint8_t CUSTOM_HID_ReportDesc_FS[USBD_CUSTOM_HID_REPORT_DES
 extern USBD_HandleTypeDef hUsbDeviceFS;
 
 /* USER CODE BEGIN EXPORTED_VARIABLES */
+extern  uint8_t led_state;
 
 /* USER CODE END EXPORTED_VARIABLES */
 /**
@@ -188,6 +189,9 @@ static int8_t CUSTOM_HID_DeInit_FS(void)
 static int8_t CUSTOM_HID_OutEvent_FS(uint8_t event_idx, uint8_t state)
 {
   /* USER CODE BEGIN 6 */
+  USBD_CUSTOM_HID_HandleTypeDef *hhid = (USBD_CUSTOM_HID_HandleTypeDef*)hUsbDeviceFS.pClassData;
+  led_state = hhid->Report_buf[0] | hhid->Report_buf[1];
+
   return (USBD_OK);
   /* USER CODE END 6 */
 }
