@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>WB55 LED Control (Web Bluetooth)</title>
+    <style>
+      :root { color-scheme: light dark; }
+      body { font-family: system-ui, Segoe UI, Roboto, Arial, sans-serif; margin: 1rem; }
+      button { padding: 0.6rem 1rem; margin: 0.25rem; font-size: 1rem; }
+      #status { white-space: pre-wrap; border: 1px solid #8884; padding: 0.75rem; border-radius: 8px; min-height: 6rem; }
+      .row { margin: 0.5rem 0; }
+      code { user-select: all; }
+    </style>
+  </head>
+  <body>
+    <h2>STM32WB55 LED Control via Web Bluetooth</h2>
+    <p>
+      This page connects to the custom BLE service on your STM32WB55 and writes to the BLUE_LED characteristic.
+    </p>
+    <div class="row">
+      <button id="btnConnect">Connect</button>
+      <button id="btnDisconnect" disabled>Disconnect</button>
+    </div>
+    <div class="row">
+      <button id="btnOn" disabled>LED ON</button>
+      <button id="btnOff" disabled>LED OFF</button>
+      <button id="btnToggle" disabled>Toggle</button>
+      <label style="margin-left:1rem">
+        Payload (hex, 2 bytes):
+        <input id="payload" value="01 00" size="8" />
+        <button id="btnWrite" disabled>Write Raw</button>
+      </label>
+    </div>
+    <div class="row">
+      <strong>Service UUID:</strong>
+      <code id="svc">0000fe40-cc7a-482a-984a-7f2ed5b3e58f</code>
+      <br />
+      <strong>BLUE_LED Char UUID:</strong>
+      <code id="chr">0000fe41-8e22-4541-9d4c-21edae82ed19</code>
+    </div>
+    <h3>Status</h3>
+    <div id="status"></div>
+
+    <script>
+      const SERVICE_UUID = "0000fe40-cc7a-482a-984a-7f2ed5b3e58f";
+      const LED_CHAR_UUID = "0000fe41-8e22-4541-9d4c-21edae82ed19";
+
+      const $ = (id) => document.getElementById(id);
+      const log = (m) => { const el = $('status'); el.textContent += (m + '\n'); el.scrollTop = el.scrollHeight; };
+      const setEnabled = (enabled) => {
+        $('btnOn').disabled = !enabled;
+        $('btnOff').disabled = !enabled;
+        $('btnToggle').disabled = !enabled;
+        $('btnWrite').disabled = !enabled;
+        $('btnDisconnect').disabled = !enabled;
+        $('btnConnect').disabled = enabled;
+      };
+
+      let device = null;
+      let server = null;
+      let service = null;
+      let ledChar = null;
+
+      function toBytesFromHex(str) {
+        // Accept formats like "01 00", "0100", "01,00"
+        const hex = str.replace(/[^0-9a-fA-F]/g, '');
+        if (hex.length % 2 !== 0) throw new Error('Hex string must have an even number of digits');
+        const out = new Uint8Array(hex.length / 2);
+        for (let i = 0; i < hex.length; i += 2) {
+          out[i/2] = parseInt(hex.substr(i, 2), 16);
+        }
+        return out;
+      }
+
+      async function connect() {
+        try {
+          log('Requesting Bluetooth device...');
+          device = await navigator.bluetooth.requestDevice({
+            filters: [{/* services: [SERVICE_UUID]*/ namePrefix:"ELM"}],
+             optionalServices: [SERVICE_UUID]
+          });
+          device.addEventListener('gattserverdisconnected', onDisconnected);
+          log(`Connecting to GATT server on: ${device.name || '(unnamed device)'}...`);
+          server = await device.gatt.connect();
+          log('Getting primary service...');
+          service = await server.getPrimaryService(SERVICE_UUID);
+          log('Getting BLUE_LED characteristic...');
+          ledChar = await service.getCharacteristic(LED_CHAR_UUID);
+          log('Connected. You can now control the LED.');
+          setEnabled(true);
+        } catch (err) {
+          log('Error during connect: ' + err.message);
+          await disconnect();
+        }
+      }
+
+      async function disconnect() {
+        try {
+          if (device && device.gatt && device.gatt.connected) {
+            device.gatt.disconnect();
+          }
+        } catch {}
+        setEnabled(false);
+        log('Disconnected');
+      }
+
+      function onDisconnected() {
+        log('Device disconnected');
+        setEnabled(false);
+      }
+
+      // SizeB_Led_C = 2 in firmware; use 2-byte payloads.
+      async function writeLed(value0, value1 = 0x00) {
+        if (!ledChar) throw new Error('Not connected');
+        const payload = new Uint8Array([value0 & 0xFF, value1 & 0xFF]);
+        log(`Writing: [${payload[0].toString(16).padStart(2,'0')} ${payload[1].toString(16).padStart(2,'0')}]`);
+        await ledChar.writeValueWithoutResponse(payload);
+      }
+
+      async function toggle() {
+        // A simple heuristic: send [0x02, 0x00] as a toggle command if firmware supports it;
+        // otherwise try ON then OFF quickly. Here we send [0x02, 0x00].
+        try {
+          await writeLed(0x02, 0x00);
+        } catch (e) {
+          log('Toggle failed: ' + e.message);
+        }
+      }
+
+      $('btnConnect').addEventListener('click', connect);
+      $('btnDisconnect').addEventListener('click', disconnect);
+      $('btnOn').addEventListener('click', () => writeLed(0x01, 0x00).catch(e => log(e.message)) );
+      $('btnOff').addEventListener('click', () => writeLed(0x00, 0x00).catch(e => log(e.message)) );
+      $('btnToggle').addEventListener('click', () => toggle());
+      $('btnWrite').addEventListener('click', () => {
+        try {
+          const bytes = toBytesFromHex($('payload').value);
+          if (bytes.length !== 2) throw new Error('Expected exactly 2 bytes');
+          ledChar.writeValueWithoutResponse(bytes).catch(e => log(e.message));
+        } catch (e) {
+          log('Invalid payload: ' + e.message);
+        }
+      });
+
+      // Feature detection and usage notes
+      if (!('bluetooth' in navigator)) {
+        log('Error: This browser does not support Web Bluetooth. Use recent Chrome/Edge/Opera on desktop or Android.');
+      } else {
+        log('Tip: Web Bluetooth works only on HTTPS or http://localhost. If opening this file directly, serve it via a local web server.');
+      }
+    </script>
+  </body>
+  </html>
