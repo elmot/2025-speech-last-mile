@@ -14,19 +14,27 @@
     </style>
   </head>
   <body>
-    <h2>STM32WB55 LED Control via Web Bluetooth</h2>
+    <h2>STM32WB55 Traffic Light Control (Web Bluetooth)</h2>
     <p>
-      This page connects to the custom BLE service on your STM32WB55 and writes to the BLUE_LED characteristic.
+      Connect to the custom BLE service on your STM32WB55 and control a traffic light. Click the lights to toggle them.
+      Each light maps to one bit in the packet byte: Green=bit0, Yellow=bit1, Red=bit2.
     </p>
     <div class="row">
       <button id="btnConnect">Connect</button>
       <button id="btnDisconnect" disabled>Disconnect</button>
     </div>
-    <div class="row">
-      <button id="btnOn" disabled>LED ON</button>
-      <button id="btnOff" disabled>LED OFF</button>
-      <button id="btnToggle" disabled>Toggle</button>
-      <label style="margin-left:1rem">
+    <div class="row" id="trafficControls" aria-hidden="true">
+      <div id="traffic" role="group" aria-label="Traffic light">
+        <button id="lamp-red" class="lamp red" aria-pressed="false" aria-label="Red"></button>
+        <button id="lamp-yellow" class="lamp yellow" aria-pressed="false" aria-label="Yellow"></button>
+        <button id="lamp-green" class="lamp green" aria-pressed="false" aria-label="Green"></button>
+      </div>
+      <div style="margin-top:0.5rem;font-size:0.9rem;color:#666;">
+        Byte preview: <code id="bytePreview">0x00</code>
+      </div>
+    </div>
+    <div class="row" id="rawRow">
+      <label>
         Payload (hex, 2 bytes):
         <input id="payload" value="01 00" size="8" />
         <button id="btnWrite" disabled>Write Raw</button>
@@ -49,12 +57,10 @@
       const $ = (id) => document.getElementById(id);
       const log = (m) => { const el = $('status'); el.textContent += (m + '\n'); el.scrollTop = el.scrollHeight; };
       const setEnabled = (enabled) => {
-        $('btnOn').disabled = !enabled;
-        $('btnOff').disabled = !enabled;
-        $('btnToggle').disabled = !enabled;
         $('btnWrite').disabled = !enabled;
         $('btnDisconnect').disabled = !enabled;
         $('btnConnect').disabled = enabled;
+        setTrafficEnabled(enabled);
       };
 
       let device = null;
@@ -118,21 +124,53 @@
         await ledChar.writeValueWithoutResponse(payload);
       }
 
-      async function toggle() {
-        // A simple heuristic: send [0x02, 0x00] as a toggle command if firmware supports it;
-        // otherwise try ON then OFF quickly. Here we send [0x02, 0x00].
+      // ============ Traffic light UI state ============
+      let trafficState = 0; // bit0=green, bit1=yellow, bit2=red
+
+      function bit(mask) { return (trafficState & mask) !== 0; }
+
+      function renderTraffic() {
+        const setLamp = (id, on) => {
+          const el = $(id);
+          if (!el) return;
+          el.classList.toggle('on', !!on);
+          el.setAttribute('aria-pressed', on ? 'true' : 'false');
+        };
+        setLamp('lamp-green', bit(1));
+        setLamp('lamp-yellow', bit(2));
+        setLamp('lamp-red', bit(4));
+        $('bytePreview').textContent = '0x' + trafficState.toString(16).padStart(2,'0').toUpperCase();
+      }
+
+      function setTrafficEnabled(enabled) {
+        const ctrls = $('trafficControls');
+        ctrls.style.opacity = enabled ? '1' : '0.5';
+        ctrls.setAttribute('aria-hidden', enabled ? 'false' : 'true');
+        ['lamp-green','lamp-yellow','lamp-red'].forEach(id => {
+          const el = $(id);
+          el.disabled = !enabled;
+        });
+      }
+
+      async function applyTrafficWrite() {
         try {
-          await writeLed(0x02, 0x00);
+          await writeLed(trafficState & 0xFF, 0x00);
         } catch (e) {
-          log('Toggle failed: ' + e.message);
+          log('Write failed: ' + e.message);
         }
+      }
+
+      function toggleLamp(mask) {
+        trafficState ^= mask;
+        renderTraffic();
+        applyTrafficWrite();
       }
 
       $('btnConnect').addEventListener('click', connect);
       $('btnDisconnect').addEventListener('click', disconnect);
-      $('btnOn').addEventListener('click', () => writeLed(0x01, 0x00).catch(e => log(e.message)) );
-      $('btnOff').addEventListener('click', () => writeLed(0x00, 0x00).catch(e => log(e.message)) );
-      $('btnToggle').addEventListener('click', () => toggle());
+      $('lamp-green').addEventListener('click', () => toggleLamp(1));
+      $('lamp-yellow').addEventListener('click', () => toggleLamp(2));
+      $('lamp-red').addEventListener('click', () => toggleLamp(4));
       $('btnWrite').addEventListener('click', () => {
         try {
           const bytes = toBytesFromHex($('payload').value);
@@ -149,6 +187,41 @@
       } else {
         log('Tip: Web Bluetooth works only on HTTPS or http://localhost. If opening this file directly, serve it via a local web server.');
       }
+
+      // Initialize UI
+      renderTraffic();
+      setTrafficEnabled(false);
     </script>
+    <style>
+      /* Traffic light styles */
+      #traffic {
+        width: 120px;
+        padding: 14px 14px;
+        background: linear-gradient(180deg, #333, #111);
+        border-radius: 16px;
+        border: 2px solid #0008;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+        box-shadow: inset 0 2px 8px #0008, 0 8px 16px #0006;
+      }
+      .lamp {
+        width: 72px;
+        height: 72px;
+        border-radius: 50%;
+        border: 2px solid #000a;
+        background: radial-gradient(circle at 30% 30%, #555, #222);
+        box-shadow: inset 0 8px 16px #000a, 0 2px 6px #0008;
+        cursor: pointer;
+      }
+      .lamp:disabled { cursor: not-allowed; opacity: 0.6; }
+      .lamp.red.on { background: radial-gradient(circle at 30% 30%, #ff8a80, #d50000); box-shadow: 0 0 12px 6px #ff1744aa, inset 0 8px 16px #000a; }
+      .lamp.yellow.on { background: radial-gradient(circle at 30% 30%, #ffe57f, #ffab00); box-shadow: 0 0 12px 6px #ffd600aa, inset 0 8px 16px #000a; }
+      .lamp.green.on { background: radial-gradient(circle at 30% 30%, #a5d6a7, #00c853); box-shadow: 0 0 12px 6px #00e676aa, inset 0 8px 16px #000a; }
+      .lamp.red { background: radial-gradient(circle at 30% 30%, #733, #300); }
+      .lamp.yellow { background: radial-gradient(circle at 30% 30%, #664, #331); }
+      .lamp.green { background: radial-gradient(circle at 30% 30%, #364, #132); }
+    </style>
   </body>
   </html>
