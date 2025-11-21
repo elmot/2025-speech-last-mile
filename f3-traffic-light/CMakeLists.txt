@@ -50,6 +50,9 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
 # Add include paths
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user defined include paths
+    ${CMAKE_CURRENT_SOURCE_DIR}/VendorUsb/Device/Inc
+    ${CMAKE_CURRENT_SOURCE_DIR}/VendorUsb/Core/Inc
+    ${CMAKE_CURRENT_SOURCE_DIR}/VendorUsb/Class/Inc
 )
 
 # Add project symbols (macros)
@@ -60,9 +63,26 @@ target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE
 # Remove wrong libob.a library dependency when using cpp files
 list(REMOVE_ITEM CMAKE_C_IMPLICIT_LINK_LIBRARIES ob)
 
+add_library(USB_Device_Library OBJECT
+        ${CMAKE_CURRENT_SOURCE_DIR}/VendorUsb/Device/Src/usbd_conf.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/VendorUsb/Device/Src/usb_device.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/VendorUsb/Device/Src/usbd_desc.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/VendorUsb/Device/Src/usbd_custom_hid_if.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/VendorUsb/Core/Src/usbd_core.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/VendorUsb/Core/Src/usbd_ctlreq.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/VendorUsb/Core/Src/usbd_ioreq.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/VendorUsb/Class/Src/usbd_customhid.c
+)
+target_include_directories(USB_Device_Library PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/VendorUsb/Device/Inc
+        ${CMAKE_CURRENT_SOURCE_DIR}/VendorUsb/Core/Inc
+        ${CMAKE_CURRENT_SOURCE_DIR}/VendorUsb/Class/Inc
+)
+target_link_libraries(USB_Device_Library PUBLIC stm32cubemx)
+
 # Add linked libraries
 target_link_libraries(${CMAKE_PROJECT_NAME}
     stm32cubemx
-
+    USB_Device_Library
     # Add user defined libraries
 )

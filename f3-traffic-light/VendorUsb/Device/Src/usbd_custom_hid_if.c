@@ -19,7 +19,7 @@
 /* USER CODE END Header */
 
 /* Includes ------------------------------------------------------------------*/
-#include "usbd_custom_hid_if.h"
+#include "../Inc/usbd_custom_hid_if.h"
 
 /* USER CODE BEGIN INCLUDE */
 
