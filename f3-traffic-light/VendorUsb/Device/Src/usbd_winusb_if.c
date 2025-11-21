@@ -1,9 +1,9 @@
 /* USER CODE BEGIN Header */
 /**
   ******************************************************************************
-  * @file           : usbd_custom_hid_if.c
+  * @file           : usbd_winusb_if.c
   * @version        : v2.0_Cube
-  * @brief          : USB Device Custom HID interface file.
+  * @brief          : USB Device WinUSB interface file.
   ******************************************************************************
   * @attention
   *
@@ -19,7 +19,7 @@
 /* USER CODE END Header */
 
 /* Includes ------------------------------------------------------------------*/
-#include "../Inc/usbd_custom_hid_if.h"
+#include "../Inc/usbd_winusb_if.h"
 
 /* USER CODE BEGIN INCLUDE */
 
@@ -39,11 +39,11 @@
   * @{
   */
 
-/** @addtogroup USBD_CUSTOM_HID
+/** @addtogroup USBD_WINUSB
   * @{
   */
 
-/** @defgroup USBD_CUSTOM_HID_Private_TypesDefinitions USBD_CUSTOM_HID_Private_TypesDefinitions
+/** @defgroup USBD_WINUSB_Private_TypesDefinitions USBD_WINUSB_Private_TypesDefinitions
   * @brief Private types.
   * @{
   */
@@ -56,7 +56,7 @@
   * @}
   */
 
-/** @defgroup USBD_CUSTOM_HID_Private_Defines USBD_CUSTOM_HID_Private_Defines
+/** @defgroup USBD_WINUSB_Private_Defines USBD_WINUSB_Private_Defines
   * @brief Private defines.
   * @{
   */
@@ -69,7 +69,7 @@
   * @}
   */
 
-/** @defgroup USBD_CUSTOM_HID_Private_Macros USBD_CUSTOM_HID_Private_Macros
+/** @defgroup USBD_WINUSB_Private_Macros USBD_WINUSB_Private_Macros
   * @brief Private macros.
   * @{
   */
@@ -82,16 +82,16 @@
   * @}
   */
 
-/** @defgroup USBD_CUSTOM_HID_Private_Variables USBD_CUSTOM_HID_Private_Variables
+/** @defgroup USBD_WINUSB_Private_Variables USBD_WINUSB_Private_Variables
   * @brief Private variables.
   * @{
   */
 
 /** Usb HID report descriptor. */
-__ALIGN_BEGIN static uint8_t CUSTOM_HID_ReportDesc_FS[USBD_CUSTOM_HID_REPORT_DESC_SIZE] __ALIGN_END =
+__ALIGN_BEGIN static uint8_t WINUSB_ReportDesc_FS[USBD_WINUSB_REPORT_DESC_SIZE] __ALIGN_END =
 {
   /* USER CODE BEGIN 0 */
-  // Minimal valid Custom HID descriptor with 2-byte IN and 2-byte OUT reports
+  // Minimal valid WinUSB descriptor with 2-byte IN and 2-byte OUT reports
   0x06, 0x00, 0xFF,       /* USAGE_PAGE (Vendor Defined 0xFF00) */
   0x09, 0x01,             /* USAGE (0x01) */
   0xA1, 0x01,             /* COLLECTION (Application) */
@@ -116,7 +116,7 @@ __ALIGN_BEGIN static uint8_t CUSTOM_HID_ReportDesc_FS[USBD_CUSTOM_HID_REPORT_DES
   * @}
   */
 
-/** @defgroup USBD_CUSTOM_HID_Exported_Variables USBD_CUSTOM_HID_Exported_Variables
+/** @defgroup USBD_WINUSB_Exported_Variables USBD_WINUSB_Exported_Variables
   * @brief Public variables.
   * @{
   */
@@ -130,28 +130,28 @@ extern  uint8_t led_state;
   * @}
   */
 
-/** @defgroup USBD_CUSTOM_HID_Private_FunctionPrototypes USBD_CUSTOM_HID_Private_FunctionPrototypes
+/** @defgroup USBD_WINUSB_Private_FunctionPrototypes USBD_WINUSB_Private_FunctionPrototypes
   * @brief Private functions declaration.
   * @{
   */
 
-static int8_t CUSTOM_HID_Init_FS(void);
-static int8_t CUSTOM_HID_DeInit_FS(void);
-static int8_t CUSTOM_HID_OutEvent_FS(uint8_t event_idx, uint8_t state);
+static int8_t WINUSB_Init_FS(void);
+static int8_t WINUSB_DeInit_FS(void);
+static int8_t WINUSB_OutEvent_FS(uint8_t event_idx, uint8_t state);
 
 /**
   * @}
   */
 
-USBD_CUSTOM_HID_ItfTypeDef USBD_CustomHID_fops_FS =
+USBD_WINUSB_ItfTypeDef USBD_WinUSB_fops_FS =
 {
-  CUSTOM_HID_ReportDesc_FS,
-  CUSTOM_HID_Init_FS,
-  CUSTOM_HID_DeInit_FS,
-  CUSTOM_HID_OutEvent_FS
+  WINUSB_ReportDesc_FS,
+  WINUSB_Init_FS,
+  WINUSB_DeInit_FS,
+  WINUSB_OutEvent_FS
 };
 
-/** @defgroup USBD_CUSTOM_HID_Private_Functions USBD_CUSTOM_HID_Private_Functions
+/** @defgroup USBD_WINUSB_Private_Functions USBD_WINUSB_Private_Functions
   * @brief Private functions.
   * @{
   */
@@ -159,10 +159,10 @@ USBD_CUSTOM_HID_ItfTypeDef USBD_CustomHID_fops_FS =
 /* Private functions ---------------------------------------------------------*/
 
 /**
-  * @brief  Initializes the CUSTOM HID media low layer
+  * @brief  Initializes the Vendor Specific media low layer
   * @retval USBD_OK if all operations are OK else USBD_FAIL
   */
-static int8_t CUSTOM_HID_Init_FS(void)
+static int8_t WINUSB_Init_FS(void)
 {
   /* USER CODE BEGIN 4 */
   return (USBD_OK);
@@ -170,10 +170,10 @@ static int8_t CUSTOM_HID_Init_FS(void)
 }
 
 /**
-  * @brief  DeInitializes the CUSTOM HID media low layer
+  * @brief  DeInitializes the Vendor Specific media low layer
   * @retval USBD_OK if all operations are OK else USBD_FAIL
   */
-static int8_t CUSTOM_HID_DeInit_FS(void)
+static int8_t WINUSB_DeInit_FS(void)
 {
   /* USER CODE BEGIN 5 */
   return (USBD_OK);
@@ -181,15 +181,15 @@ static int8_t CUSTOM_HID_DeInit_FS(void)
 }
 
 /**
-  * @brief  Manage the CUSTOM HID class events
+  * @brief  Manage the WinUSB class events
   * @param  event_idx: Event index
   * @param  state: Event state
   * @retval USBD_OK if all operations are OK else USBD_FAIL
   */
-static int8_t CUSTOM_HID_OutEvent_FS(uint8_t event_idx, uint8_t state)
+static int8_t WINUSB_OutEvent_FS(uint8_t event_idx, uint8_t state)
 {
   /* USER CODE BEGIN 6 */
-  USBD_CUSTOM_HID_HandleTypeDef *hhid = (USBD_CUSTOM_HID_HandleTypeDef*)hUsbDeviceFS.pClassData;
+  USBD_WINUSB_HandleTypeDef *hhid = (USBD_WINUSB_HandleTypeDef*)hUsbDeviceFS.pClassData;
   led_state = hhid->Report_buf[0] | hhid->Report_buf[1];
 
   return (USBD_OK);
@@ -204,9 +204,9 @@ static int8_t CUSTOM_HID_OutEvent_FS(uint8_t event_idx, uint8_t state)
   * @retval USBD_OK if all operations are OK else USBD_FAIL
   */
 /*
-static int8_t USBD_CUSTOM_HID_SendReport_FS(uint8_t *report, uint16_t len)
+static int8_t USBD_WINUSB_SendReport_FS(uint8_t *report, uint16_t len)
 {
-  return USBD_CUSTOM_HID_SendReport(&hUsbDeviceFS, report, len);
+  return USBD_WINUSB_SendReport(&hUsbDeviceFS, report, len);
 }
 */
 /* USER CODE END 7 */

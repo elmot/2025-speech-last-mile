@@ -72,11 +72,11 @@
 /*---------- -----------*/
 #define USBD_SELF_POWERED     1U
 /*---------- -----------*/
-#define USBD_CUSTOMHID_OUTREPORT_BUF_SIZE     2U
+#define USBD_WINUSB_OUTREPORT_BUF_SIZE     2U
 /*---------- -----------*/
-#define USBD_CUSTOM_HID_REPORT_DESC_SIZE     27U
+#define USBD_WINUSB_REPORT_DESC_SIZE     27U
 /*---------- -----------*/
-#define CUSTOM_HID_FS_BINTERVAL     0x5U
+#define WINUSB_FS_BINTERVAL     0x5U
 
 /* Enable BOS descriptor handling in ST USB stack (required for WebUSB) */
 #ifndef USBD_LPM_ENABLED

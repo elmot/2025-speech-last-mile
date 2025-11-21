@@ -67,11 +67,11 @@ add_library(USB_Device_Library OBJECT
         ${CMAKE_CURRENT_SOURCE_DIR}/VendorUsb/Device/Src/usbd_conf.c
         ${CMAKE_CURRENT_SOURCE_DIR}/VendorUsb/Device/Src/usb_device.c
         ${CMAKE_CURRENT_SOURCE_DIR}/VendorUsb/Device/Src/usbd_desc.c
-        ${CMAKE_CURRENT_SOURCE_DIR}/VendorUsb/Device/Src/usbd_custom_hid_if.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/VendorUsb/Device/Src/usbd_winusb_if.c
         ${CMAKE_CURRENT_SOURCE_DIR}/VendorUsb/Core/Src/usbd_core.c
         ${CMAKE_CURRENT_SOURCE_DIR}/VendorUsb/Core/Src/usbd_ctlreq.c
         ${CMAKE_CURRENT_SOURCE_DIR}/VendorUsb/Core/Src/usbd_ioreq.c
-        ${CMAKE_CURRENT_SOURCE_DIR}/VendorUsb/Class/Src/usbd_customhid.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/VendorUsb/Class/Src/usbd_winusb.c
 )
 target_include_directories(USB_Device_Library PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/VendorUsb/Device/Inc
