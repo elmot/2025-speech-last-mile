@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>WebSerial Traffic Light Control</title>
+    <style>
+      body { font-family: system-ui, Segoe UI, Roboto, Arial, sans-serif; margin: 2rem; }
+      button { margin: 0.25rem 0.5rem 0.25rem 0; padding: 0.6rem 0.9rem; }
+      fieldset { margin-top: 1rem; }
+      input[type="text"] { width: 14rem; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+      #log { white-space: pre-wrap; background: #111; color: #ddd; padding: 0.75rem; border-radius: 6px; height: 14rem; overflow: auto; }
+      .ok { color: #80ff80; }
+      .err { color: #ff8080; }
+      .muted { opacity: 0.8 }
+      .row { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+    </style>
+  </head>
+  <body>
+    <!--
+      WebSerial controller for STM32 CDC (virtual COM) traffic light demo.
+
+      Serial params: 115200 baud, 8 data bits, no parity, 1 stop bit, no flow control (115200-8-N-1).
+      Protocol (write-only): send 1 byte where the lower 3 bits control lamps:
+        bit0 = green, bit1 = yellow, bit2 = red. Other bits are ignored by firmware.
+
+      Requirements: Chrome/Edge 89+ with Web Serial API over HTTPS or http://localhost.
+    -->
+
+    <h1>STM32 CDC — WebSerial</h1>
+    <p>
+      This page connects to the board’s USB CDC (virtual COM) interface using the Web Serial API and
+      sends a 1-byte payload whose lower 3 bits control the traffic light.
+    </p>
+    <p class="muted">Requirements: Chrome/Edge 89+ over HTTPS or http://localhost, and a user gesture to pair.</p>
+
+    <div class="row">
+      <button id="pair">Pair port…</button>
+      <button id="connect" disabled>Open</button>
+      <button id="disconnect" disabled>Close</button>
+    </div>
+    <div id="status" class="muted">Not paired</div>
+    <div class="row" id="trafficControls" aria-hidden="true">
+      <div id="traffic" role="group" aria-label="Traffic light">
+        <button id="lamp-red" class="lamp red" aria-pressed="false" aria-label="Red"></button>
+        <button id="lamp-yellow" class="lamp yellow" aria-pressed="false" aria-label="Yellow"></button>
+        <button id="lamp-green" class="lamp green" aria-pressed="false" aria-label="Green"></button>
+      </div>
+      <div style="margin-top:0.5rem;font-size:0.9rem;color:#666;">
+        Byte preview: <code id="bytePreview">0x00</code>
+      </div>
+    </div>
+
+    <h3>Log</h3>
+    <div id="log" aria-live="polite"></div>
+
+    <script>
+      // Behavior flags (can be overridden via URL, e.g., ?auto=1&reopen=1)
+      const params = new URLSearchParams(location.search);
+      const AUTO_OPEN = params.get('auto') !== '0';
+      const AUTO_REOPEN_ON_CONNECT = params.get('reopen') !== '0';
+
+      const el = (id) => document.getElementById(id);
+      const status = el('status');
+      const logEl = el('log');
+      const btnPair = el('pair');
+      const btnOpen = el('connect');
+      const btnClose = el('disconnect');
+      const trafficControls = el('trafficControls');
+      const lampRed = el('lamp-red');
+      const lampYellow = el('lamp-yellow');
+      const lampGreen = el('lamp-green');
+      const bytePreview = el('bytePreview');
+
+      // bit0 = green, bit1 = yellow, bit2 = red
+      let stateBits = 0; // 0..7
+
+      /** @type {SerialPort|null} */
+      let port = null;
+      let writer = null; // WritableStreamDefaultWriter<Uint8Array>
+
+      function log(msg, cls = '') {
+        const time = new Date().toLocaleTimeString();
+        const line = document.createElement('div');
+        if (cls) line.className = cls;
+        line.textContent = `[${time}] ${msg}`;
+        logEl.appendChild(line);
+        logEl.scrollTop = logEl.scrollHeight;
+      }
+
+      function setUI() {
+        const paired = !!port;
+        const opened = !!(port && port.readable && port.writable);
+        btnOpen.disabled = !paired || opened;
+        btnClose.disabled = !paired || !opened;
+        [lampRed, lampYellow, lampGreen].forEach(b => { if (b) b.disabled = !opened; });
+        if (trafficControls) trafficControls.setAttribute('aria-hidden', opened ? 'false' : 'true');
+        status.textContent = opened
+          ? `Connected to serial port`
+          : (paired ? `Paired (not open)` : 'Not paired');
+        renderLamps();
+      }
+
+      async function pair() {
+        try {
+          const p = await navigator.serial.requestPort({
+            // Filter by STMicroelectronics VID if available; browsers may only match USB vendor ids
+            filters: [ { usbVendorId: 0x0483 } ]
+          });
+          if (!p) return;
+          port = p;
+          log(`Paired serial port`, 'ok');
+          setUI();
+          if (AUTO_OPEN) {
+            await open();
+          }
+        } catch (e) {
+          log(`Pair canceled or failed: ${e.message}`, 'err');
+        }
+      }
+
+      async function open() {
+        if (!port) return;
+        try {
+          await port.open({ baudRate: 115200, dataBits: 8, stopBits: 1, parity: 'none', flowControl: 'none' });
+          // Prepare writer for fast one-byte writes
+          writer = port.writable?.getWriter();
+          setUI();
+          log('Port opened', 'ok');
+          // Optional: could implement a read loop if needed in the future.
+        } catch (e) {
+          log(`Open failed: ${e.message}`, 'err');
+        }
+      }
+
+      async function close() {
+        if (!port) return;
+        try {
+          try {
+            if (writer) {
+              writer.releaseLock();
+              writer = null;
+            }
+          } catch {}
+          await port.close();
+          setUI();
+          log('Port closed', 'ok');
+        } catch (e) {
+          log(`Close failed: ${e.message}`, 'err');
+        }
+      }
+
+      async function sendState() {
+        if (!port || !port.writable) return;
+        const b = stateBits & 0x07;
+        try {
+          const w = writer || port.writable.getWriter();
+          await w.write(Uint8Array.of(b));
+          if (!writer) w.releaseLock();
+          log(`TX [${b.toString(16).padStart(2,'0')}]`, 'ok');
+        } catch (e) {
+          log(`Write failed: ${e.message}`, 'err');
+        }
+      }
+
+      function renderLamps() {
+        if (!bytePreview) return;
+        bytePreview.textContent = `0x${stateBits.toString(16).padStart(2,'0')}`;
+        const on = (el, isOn) => {
+          if (!el) return;
+          el.classList.toggle('on', !!isOn);
+          el.setAttribute('aria-pressed', isOn ? 'true' : 'false');
+        };
+        on(lampGreen, (stateBits & 0x1) !== 0);
+        on(lampYellow, (stateBits & 0x2) !== 0);
+        on(lampRed, (stateBits & 0x4) !== 0);
+      }
+
+      function toggleLamp(color) {
+        const bit = color === 'red' ? 0x4 : color === 'yellow' ? 0x2 : 0x1;
+        stateBits ^= bit;
+        renderLamps();
+        sendState();
+      }
+
+      // Wire up UI
+      btnPair.addEventListener('click', pair);
+      btnOpen.addEventListener('click', open);
+      btnClose.addEventListener('click', close);
+      if (lampRed) lampRed.addEventListener('click', () => toggleLamp('red'));
+      if (lampYellow) lampYellow.addEventListener('click', () => toggleLamp('yellow'));
+      if (lampGreen) lampGreen.addEventListener('click', () => toggleLamp('green'));
+
+      // Init: auto-reuse previously granted ports and auto-open
+      (async function init() {
+        if (!('serial' in navigator)) {
+          log('Web Serial not supported in this browser.', 'err');
+          status.textContent = 'Web Serial unsupported';
+          return;
+        }
+        try {
+          const ports = await navigator.serial.getPorts();
+          // Prefer any previously granted port; filtering by vendor is not always available at this stage
+          if (ports && ports.length) {
+            port = ports[0];
+            setUI();
+            log('Found previously granted serial port');
+            if (AUTO_OPEN) {
+              await open();
+            }
+          } else {
+            log('No previously granted serial ports. Click "Pair port…" to grant access.');
+          }
+        } catch (e) {
+          log(`Auto-detect failed: ${e.message}`, 'err');
+        }
+
+        navigator.serial.addEventListener('connect', async (ev) => {
+          // When a port is connected, select it if none is selected
+          if (!port) {
+            port = ev.port;
+            setUI();
+            log('Serial port connected');
+            if (AUTO_REOPEN_ON_CONNECT) {
+              try { await open(); } catch (_) {}
+            }
+          }
+        });
+
+        navigator.serial.addEventListener('disconnect', (ev) => {
+          if (port === ev.port) {
+            log('Serial port disconnected');
+            port = null;
+            writer = null;
+            setUI();
+          }
+        });
+      })();
+    </script>
+
+    <hr />
+    <style>
+      /* Traffic light styles */
+      #traffic {
+        width: 120px;
+        padding: 14px 14px;
+        background: linear-gradient(180deg, #333, #111);
+        border-radius: 16px;
+        border: 2px solid #0008;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+        box-shadow: inset 0 2px 8px #0008, 0 8px 16px #0006;
+      }
+      .lamp {
+        width: 72px;
+        height: 72px;
+        border-radius: 50%;
+        border: 2px solid #000a;
+        background: radial-gradient(circle at 30% 30%, #555, #222);
+        box-shadow: inset 0 8px 16px #000a, 0 2px 6px #0008;
+        cursor: pointer;
+      }
+      .lamp:disabled { cursor: not-allowed; opacity: 0.6; }
+      .lamp.red.on { background: radial-gradient(circle at 30% 30%, #ff8a80, #d50000); box-shadow: 0 0 12px 6px #ff1744aa, inset 0 8px 16px #000a; }
+      .lamp.yellow.on { background: radial-gradient(circle at 30% 30%, #ffe57f, #ffab00); box-shadow: 0 0 12px 6px #ffd600aa, inset 0 8px 16px #000a; }
+      .lamp.green.on { background: radial-gradient(circle at 30% 30%, #a5d6a7, #00c853); box-shadow: 0 0 12px 6px #00e676aa, inset 0 8px 16px #000a; }
+      .lamp.red { background: radial-gradient(circle at 30% 30%, #733, #300); }
+      .lamp.yellow { background: radial-gradient(circle at 30% 30%, #664, #331); }
+      .lamp.green { background: radial-gradient(circle at 30% 30%, #364, #132); }
+    </style>
+  </body>
+  </html>
