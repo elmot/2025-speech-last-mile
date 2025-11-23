@@ -44,7 +44,7 @@
       <strong>Service UUID:</strong>
       <code id="svc">0000fe40-cc7a-482a-984a-7f2ed5b3e58f</code>
       <br />
-      <strong>BLUE_LED Char UUID:</strong>
+      <strong>Traffic LED Char UUID:</strong>
       <code id="chr">0000fe41-8e22-4541-9d4c-21edae82ed19</code>
     </div>
     <h3>Status</h3>
@@ -91,7 +91,7 @@
           server = await device.gatt.connect();
           log('Getting primary service...');
           service = await server.getPrimaryService(SERVICE_UUID);
-          log('Getting BLUE_LED characteristic...');
+          log('Getting Traffic LED characteristic...');
           ledChar = await service.getCharacteristic(LED_CHAR_UUID);
           log('Connected. You can now control the LED.');
           setEnabled(true);
