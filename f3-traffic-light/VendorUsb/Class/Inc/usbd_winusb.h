@@ -47,7 +47,7 @@ extern "C" {
 #define WINUSB_EPOUT_ADDR                0x01U
 #define WINUSB_EPOUT_SIZE                0x02U
 
-#define USB_WINUSB_CONFIG_DESC_SIZ       41U
+#define USB_WINUSB_CONFIG_DESC_SIZ       32U
 #define USB_WINUSB_DESC_SIZ              9U
 
 #ifndef WINUSB_HS_BINTERVAL
@@ -76,7 +76,9 @@ extern "C" {
 
 #define WINUSB_REQ_SET_REPORT            0x09U
 #define WINUSB_REQ_GET_REPORT            0x01U
-/**
+
+#define WEBUSB_REQ_GET_URL_INDEX   0x02u    /* wIndex value for WebUSB GET_URL request */
+  /**
   * @}
   */
 

@@ -28,9 +28,6 @@
 /* Includes ------------------------------------------------------------------*/
 #include "usbd_def.h"
 
-/* USER CODE BEGIN INCLUDE */
-
-/* USER CODE END INCLUDE */
 
 /** @addtogroup STM32_USB_OTG_DEVICE_LIBRARY
   * @{
@@ -51,57 +48,10 @@
 
 #define  USB_SIZ_STRING_SERIAL       0x1A
 
-/* USER CODE BEGIN EXPORTED_CONSTANTS */
-
-/* USER CODE END EXPORTED_CONSTANTS */
-
-/**
-  * @}
-  */
-
-/** @defgroup USBD_DESC_Exported_Defines USBD_DESC_Exported_Defines
-  * @brief Defines.
-  * @{
-  */
-
-/* USER CODE BEGIN EXPORTED_DEFINES */
-
-/* USER CODE END EXPORTED_DEFINES */
-
-/**
-  * @}
-  */
-
-/** @defgroup USBD_DESC_Exported_TypesDefinitions USBD_DESC_Exported_TypesDefinitions
-  * @brief Types.
-  * @{
-  */
-
-/* USER CODE BEGIN EXPORTED_TYPES */
-
-/* USER CODE END EXPORTED_TYPES */
-
-/**
-  * @}
-  */
-
-/** @defgroup USBD_DESC_Exported_Macros USBD_DESC_Exported_Macros
-  * @brief Aliases.
-  * @{
-  */
-
-/* USER CODE BEGIN EXPORTED_MACRO */
-
-/* USER CODE END EXPORTED_MACRO */
-
-/**
-  * @}
-  */
-
-/** @defgroup USBD_DESC_Exported_Variables USBD_DESC_Exported_Variables
-  * @brief Public variables.
-  * @{
-  */
+#define WEBUSB_VENDOR_CODE         0x01u    /* Must match BOS WebUSB capability bVendorCode */
+/* WebUSB Platform Capability UUID (RFC4122, byte order as on the bus) */
+/* 3408b638-09a9-47a0-8bfd-a0768815b665 */
+#define WEBUSB_UUID  0x38,0xB6,0x08,0x34,0xA9,0x09,0xA0,0x47,0x8B,0xFD,0xA0,0x76,0x88,0x15,0xB6,0x65
 
 /** Descriptor for the Usb device. */
 extern USBD_DescriptorsTypeDef FS_Desc;

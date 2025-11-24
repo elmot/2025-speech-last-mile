@@ -39,19 +39,53 @@ EndBSPDependencies */
 /* Includes ------------------------------------------------------------------*/
 #include "usbd_winusb.h"
 #include "usbd_ctlreq.h"
+#include "usbd_desc.h"
 
-/* --- WebUSB minimal support (Vendor control + URL descriptor) --- */
-#define WEBUSB_VENDOR_CODE       0x22u
-#define WEBUSB_REQ_GET_URL       0x0002u
-/* Landing page URL (index 1). Scheme 0x01 = https. Change as needed. */
-static const char* const WEBUSB_URL_STR = "elmot.xyz";
-/* URL descriptor: bLength, bDescriptorType(0x03), bScheme, URL... */
-static const uint8_t WEBUSB_URL_DESCRIPTOR[] = {
-  (uint8_t)(3 + sizeof("elmot.xyz") - 1), /* bLength */
-  0x03, /* bDescriptorType = WebUSB URL */
-  0x01, /* bScheme = https */
-  /* URL bytes */
+/* --- Microsoft OS 2.0 descriptor support (WINUSB auto-driver) --- */
+#define MS_OS_20_VENDOR_CODE       0x20u    /* Must match BOS capability bVendorCode */
+#define MS_OS_20_DESCRIPTOR_INDEX  0x07u    /* wIndex for MS OS 2.0 descriptor set */
+
+/* --- WebUSB support --- */
+
+/* WebUSB URL descriptor for index 1: https://localhost:8080/usb-traffic-light.html */
+/* Format: bLength, bDescriptorType(=3), bScheme(1=https), URL bytes (no scheme) */
+static const uint8_t WEBUSB_URL_DESC_IDX1[] = {
+  /* bLength = 3 + strlen("localhost:8080/usb-traffic-light.html") = 3 + 9 = 12 (0x0C) */
+  0x0C, 0x03, 0x01,
+  /* "localhost" (9 bytes) */
   'e','l','m','o','t','.','x','y','z'
+};
+
+/* Full Microsoft OS 2.0 Descriptor Set */
+/* Total length = 0x00A2 (162) */
+static const uint8_t MS_OS_20_DESCRIPTOR_SET[0x00A2] =
+{
+  /* Microsoft OS 2.0 descriptor set header (Table 10) */
+  0x0A, 0x00,                          /* wLength */
+  0x00, 0x00,                          /* wDescriptorType = MS_OS_20_SET_HEADER (0x00) */
+  0x00, 0x00, 0x03, 0x06,              /* dwWindowsVersion = 0x06030000 (WINBLUE) */
+  0xA2, 0x00,                          /* wTotalLength = 162 */
+
+  /* Compatible ID feature descriptor (Table 13) */
+  0x14, 0x00,                          /* wLength */
+  0x03, 0x00,                          /* wDescriptorType = FEATURE_COMPATIBLE_ID */
+  'W','I','N','U','S','B', 0x00, 0x00, /* compatibleID (WINUSB) */
+  0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00, /* subCompatibleID */
+
+  /* Registry property (DeviceInterfaceGUIDs, REG_MULTI_SZ) (Table 14) */
+  0x84, 0x00,                          /* wLength */
+  0x04, 0x00,                          /* wDescriptorType = FEATURE_REG_PROPERTY */
+  0x07, 0x00,                          /* wPropertyDataType = REG_MULTI_SZ */
+  0x2A, 0x00,                          /* wPropertyNameLength */
+  /* L"DeviceInterfaceGUIDs" */
+  'D',0,'e',0,'v',0,'i',0,'c',0,'e',0,'I',0,'n',0,'t',0,'e',0,'r',0,
+  'f',0,'a',0,'c',0,'e',0,'G',0,'U',0,'I',0,'D',0,'s',0,0,0,
+  0x50, 0x00,                          /* wPropertyDataLength */
+  /* L"1f0c50e7-da29-4179-8a69-fb66b337402b\0\0" GUID */
+  '{',0,'1',0,'f',0,'0',0,'c',0,'5',0,'0',0,'e',0,'7',0,'-',0,
+  'd',0,'a',0,'2',0,'9',0,'-',0,'4',0,'1',0,'7',0,'9',0,'-',0,
+  '8',0,'a',0,'6',0,'9',0,'-',0,'f',0,'b',0,'6',0,'6',0,'b',0,
+  '3',0,'3',0,'7',0,'4',0,'0',0,'2',0,'b',0,'}',0,0,0,0
 };
 
 
@@ -163,22 +197,11 @@ __ALIGN_BEGIN static uint8_t USBD_WINUSB_CfgFSDesc[USB_WINUSB_CONFIG_DESC_SIZ] _
   0x00,         /*bAlternateSetting: Alternate setting*/
   0x02,         /*bNumEndpoints*/
   0xFF,         /*bInterfaceClass: Vendor Specific */
-  0x00,         /*bInterfaceSubClass : 1=BOOT, 0=no boot*/
-  0x00,         /*nInterfaceProtocol : 0=none, 1=keyboard, 2=mouse*/
+  0xFF,         /*bInterfaceSubClass */
+  0x00,         /*nInterfaceProtocol */
   0,            /*iInterface: Index of string descriptor*/
-  /******************** Descriptor of WINUSB *************************/
-  /* 18 */
-  0x09,         /*bLength: WINUSB Descriptor size*/
-  WINUSB_DESCRIPTOR_TYPE, /*bDescriptorType: WINUSB*/
-  0x11,         /*bWINUSBUSTOM_HID: WINUSB Class Spec release number*/
-  0x01,
-  0x00,         /*bCountryCode: Hardware target country*/
-  0x01,         /*bNumDescriptors: Number of WINUSB class descriptors to follow*/
-  0x22,         /*bDescriptorType*/
-  USBD_WINUSB_REPORT_DESC_SIZE,/*wItemLength: Total length of Report descriptor*/
-  0x00,
   /******************** Descriptor of WinUSB endpoints ********************/
-  /* 27 */
+  /* 18 */
   0x07,          /*bLength: Endpoint Descriptor size*/
   USB_DESC_TYPE_ENDPOINT, /*bDescriptorType:*/
 
@@ -187,7 +210,7 @@ __ALIGN_BEGIN static uint8_t USBD_WINUSB_CfgFSDesc[USB_WINUSB_CONFIG_DESC_SIZ] _
   WINUSB_EPIN_SIZE, /*wMaxPacketSize: 2 Byte max */
   0x00,
   WINUSB_FS_BINTERVAL,          /*bInterval: Polling Interval */
-  /* 34 */
+  /* 25 */
 
   0x07,          /* bLength: Endpoint Descriptor size */
   USB_DESC_TYPE_ENDPOINT, /* bDescriptorType: */
@@ -196,7 +219,7 @@ __ALIGN_BEGIN static uint8_t USBD_WINUSB_CfgFSDesc[USB_WINUSB_CONFIG_DESC_SIZ] _
   WINUSB_EPOUT_SIZE,  /* wMaxPacketSize: 2 Bytes max  */
   0x00,
   WINUSB_FS_BINTERVAL,  /* bInterval: Polling Interval */
-  /* 41 */
+  /* 32 */
 };
 
 /* USB WINUSB device HS Configuration Descriptor */
@@ -222,23 +245,12 @@ __ALIGN_BEGIN static uint8_t USBD_WINUSB_CfgHSDesc[USB_WINUSB_CONFIG_DESC_SIZ] _
   0x00,         /*bAlternateSetting: Alternate setting*/
   0x02,         /*bNumEndpoints*/
   0xFF,         /*bInterfaceClass: Vendor Specific */
-  0x00,         /*bInterfaceSubClass : 1=BOOT, 0=no boot*/
-  0x00,         /*nInterfaceProtocol : 0=none, 1=keyboard, 2=mouse*/
+  0xFF,         /*bInterfaceSubClass */
+  0x00,         /*nInterfaceProtocol */
   0,            /*iInterface: Index of string descriptor*/
-  /******************** Descriptor of WINUSB *************************/
-  /* 18 */
-  0x09,         /*bLength: WINUSB Descriptor size*/
-  WINUSB_DESCRIPTOR_TYPE, /*bDescriptorType: WINUSB*/
-  0x11,         /*bWINUSBUSTOM_HID: WINUSB Class Spec release number*/
-  0x01,
-  0x00,         /*bCountryCode: Hardware target country*/
-  0x01,         /*bNumDescriptors: Number of WINUSB class descriptors to follow*/
-  0x22,         /*bDescriptorType*/
-  USBD_WINUSB_REPORT_DESC_SIZE,/*wItemLength: Total length of Report descriptor*/
-  0x00,
   /******************** Descriptor of WinUSB endpoints ********************/
-  /* 27 */
-  0x07,          /*bLength: Endpoint Descriptor size*/
+/* 18 */
+    0x07,          /*bLength: Endpoint Descriptor size*/
   USB_DESC_TYPE_ENDPOINT, /*bDescriptorType:*/
 
   WINUSB_EPIN_ADDR,     /*bEndpointAddress: Endpoint Address (IN)*/
@@ -246,7 +258,7 @@ __ALIGN_BEGIN static uint8_t USBD_WINUSB_CfgHSDesc[USB_WINUSB_CONFIG_DESC_SIZ] _
   WINUSB_EPIN_SIZE, /*wMaxPacketSize: 2 Byte max */
   0x00,
   WINUSB_HS_BINTERVAL,          /*bInterval: Polling Interval */
-  /* 34 */
+  /* 25 */
 
   0x07,          /* bLength: Endpoint Descriptor size */
   USB_DESC_TYPE_ENDPOINT, /* bDescriptorType: */
@@ -255,7 +267,7 @@ __ALIGN_BEGIN static uint8_t USBD_WINUSB_CfgHSDesc[USB_WINUSB_CONFIG_DESC_SIZ] _
   WINUSB_EPOUT_SIZE,  /* wMaxPacketSize: 2 Bytes max  */
   0x00,
   WINUSB_HS_BINTERVAL,  /* bInterval: Polling Interval */
-  /* 41 */
+  /* 32 */
 };
 
 /* USB WINUSB device Other Speed Configuration Descriptor */
@@ -281,22 +293,11 @@ __ALIGN_BEGIN static uint8_t USBD_WINUSB_OtherSpeedCfgDesc[USB_WINUSB_CONFIG_DES
   0x00,         /*bAlternateSetting: Alternate setting*/
   0x02,         /*bNumEndpoints*/
   0xFF,         /*bInterfaceClass: Vendor Specific */
-  0x00,         /*bInterfaceSubClass : 1=BOOT, 0=no boot*/
-  0x00,         /*nInterfaceProtocol : 0=none, 1=keyboard, 2=mouse*/
+  0xFF,         /*bInterfaceSubClass */
+  0x00,         /*nInterfaceProtocol */
   0,            /*iInterface: Index of string descriptor*/
-  /******************** Descriptor of WINUSB *************************/
-  /* 18 */
-  0x09,         /*bLength: WINUSB Descriptor size*/
-  WINUSB_DESCRIPTOR_TYPE, /*bDescriptorType: WINUSB*/
-  0x11,         /*bWINUSBUSTOM_HID: WINUSB Class Spec release number*/
-  0x01,
-  0x00,         /*bCountryCode: Hardware target country*/
-  0x01,         /*bNumDescriptors: Number of WINUSB class descriptors to follow*/
-  0x22,         /*bDescriptorType*/
-  USBD_WINUSB_REPORT_DESC_SIZE,/*wItemLength: Total length of Report descriptor*/
-  0x00,
   /******************** Descriptor of WinUSB endpoints ********************/
-  /* 27 */
+  /* 18 */
   0x07,          /*bLength: Endpoint Descriptor size*/
   USB_DESC_TYPE_ENDPOINT, /*bDescriptorType:*/
 
@@ -305,7 +306,7 @@ __ALIGN_BEGIN static uint8_t USBD_WINUSB_OtherSpeedCfgDesc[USB_WINUSB_CONFIG_DES
   WINUSB_EPIN_SIZE, /*wMaxPacketSize: 2 Byte max */
   0x00,
   WINUSB_FS_BINTERVAL,          /*bInterval: Polling Interval */
-  /* 34 */
+  /* 25 */
 
   0x07,          /* bLength: Endpoint Descriptor size */
   USB_DESC_TYPE_ENDPOINT, /* bDescriptorType: */
@@ -314,7 +315,7 @@ __ALIGN_BEGIN static uint8_t USBD_WINUSB_OtherSpeedCfgDesc[USB_WINUSB_CONFIG_DES
   WINUSB_EPOUT_SIZE,  /* wMaxPacketSize: 2 Bytes max  */
   0x00,
   WINUSB_FS_BINTERVAL,  /* bInterval: Polling Interval */
-  /* 41 */
+  /* 32 */
 };
 
 /* USB WINUSB device Configuration Descriptor */
@@ -448,15 +449,34 @@ static uint8_t  USBD_WINUSB_Setup(USBD_HandleTypeDef *pdev,
   switch (req->bmRequest & USB_REQ_TYPE_MASK)
   {
     case USB_REQ_TYPE_VENDOR:
-      /* Handle WebUSB control requests at device level */
-      if (req->bRequest == WEBUSB_VENDOR_CODE)
+      /* Serve WebUSB GET_URL requests */
+      if (req->bRequest == WEBUSB_VENDOR_CODE &&
+          (req->bmRequest == 0xC0)) /* Device-to-host, vendor, device */
       {
-        if (req->wIndex == WEBUSB_REQ_GET_URL)
+        /* Per WebUSB spec: wIndex == 0x0002 indicates GET_URL; wValue = URL index */
+        uint8_t url_index = (uint8_t)(req->wValue & 0xFF);
+        if (req->wIndex == WEBUSB_REQ_GET_URL_INDEX && url_index == 0x01)
         {
-          uint16_t send_len = MIN((uint16_t)sizeof(WEBUSB_URL_DESCRIPTOR), req->wLength);
-          USBD_CtlSendData(pdev, (uint8_t*)WEBUSB_URL_DESCRIPTOR, send_len);
+          uint16_t send_len = MIN((uint16_t)sizeof(WEBUSB_URL_DESC_IDX1), req->wLength);
+          USBD_CtlSendData(pdev, (uint8_t*)WEBUSB_URL_DESC_IDX1, send_len);
           return USBD_OK;
         }
+        /* Some hosts mistakenly pass index in wIndex; accept that too for robustness */
+        if (req->wIndex == 0x0001)
+        {
+          uint16_t send_len = MIN((uint16_t)sizeof(WEBUSB_URL_DESC_IDX1), req->wLength);
+          USBD_CtlSendData(pdev, (uint8_t*)WEBUSB_URL_DESC_IDX1, send_len);
+          return USBD_OK;
+        }
+      }
+      /* Serve Microsoft OS 2.0 Descriptor Set request */
+      if (req->bRequest == MS_OS_20_VENDOR_CODE &&
+          req->wIndex == MS_OS_20_DESCRIPTOR_INDEX &&
+          (req->bmRequest == 0xC0)) /* Device-to-host, vendor, device */
+      {
+        uint16_t send_len = MIN((uint16_t)sizeof(MS_OS_20_DESCRIPTOR_SET), req->wLength);
+        USBD_CtlSendData(pdev, (uint8_t*)MS_OS_20_DESCRIPTOR_SET, send_len);
+        return USBD_OK;
       }
       USBD_CtlError(pdev, req);
       ret = USBD_FAIL;

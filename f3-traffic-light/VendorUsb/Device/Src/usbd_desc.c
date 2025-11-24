@@ -62,10 +62,10 @@
   * @{
   */
 
-#define USBD_VID     1155
+#define USBD_VID     0x1209
+#define USBD_PID_FS     0xE116
 #define USBD_LANGID_STRING     1033
-#define USBD_MANUFACTURER_STRING     "STMicroelectronics"
-#define USBD_PID_FS     22352
+#define USBD_MANUFACTURER_STRING     "Elmot"
 #define USBD_PRODUCT_STRING_FS     "STM32 Traffic Light interface"
 #define USBD_CONFIGURATION_STRING_FS     "Traffic Light Config"
 #define USBD_INTERFACE_STRING_FS     "Traffic Light Interface"
@@ -154,21 +154,20 @@ __ALIGN_BEGIN uint8_t USBD_FS_DeviceDesc[USB_LEN_DEV_DESC] __ALIGN_END =
 {
   0x12,                       /*bLength */
   USB_DESC_TYPE_DEVICE,       /*bDescriptorType*/
-  0x00,                       /*bcdUSB */
+  0x01,                       /*bcdUSB */
   0x02,
-  0x00,                       /*bDeviceClass*/
-  0x00,                       /*bDeviceSubClass*/
+  0xFF,                       /*bDeviceClass*/
+  0xFF,                       /*bDeviceSubClass*/
   0x00,                       /*bDeviceProtocol*/
   USB_MAX_EP0_SIZE,           /*bMaxPacketSize*/
   LOBYTE(USBD_VID),           /*idVendor*/
   HIBYTE(USBD_VID),           /*idVendor*/
   LOBYTE(USBD_PID_FS),        /*idProduct*/
   HIBYTE(USBD_PID_FS),        /*idProduct*/
-  0x00,                       /*bcdDevice rel. 2.00*/
-  0x02,
-  USBD_IDX_MFC_STR,           /*Index of manufacturer  string*/
-  USBD_IDX_PRODUCT_STR,       /*Index of product string*/
-  USBD_IDX_SERIAL_STR,        /*Index of serial number string*/
+  0x01,0x01,
+  USBD_IDX_MFC_STR,           /*Index of manufacturer string*/
+  USBD_IDX_PRODUCT_STR,       /*Index of product string */
+  USBD_IDX_SERIAL_STR,        /*Index of serial number string */
   USBD_MAX_NUM_CONFIGURATION  /*bNumConfigurations*/
 };
 
@@ -210,36 +209,55 @@ __ALIGN_BEGIN uint8_t USBD_StringSerial[USB_SIZ_STRING_SERIAL] __ALIGN_END = {
   USB_DESC_TYPE_STRING,
 };
 
-/* -------------------- WebUSB BOS Descriptor -------------------- */
+/* -------------------- Microsoft OS 2.0 BOS Descriptor -------------------- */
 #if (USBD_LPM_ENABLED == 1U)
-/* WebUSB Platform Capability UUID: 3408b638-09a9-47a0-8bfd-a0768815b665 */
-#define WEBUSB_VENDOR_CODE        0x22u  /* Arbitrary vendor code used for WebUSB control requests */
-#define WEBUSB_BCD_VERSION        0x0100u
-#define WEBUSB_LANDING_PAGE_IDX   0x01u  /* Index of the URL descriptor to return via GET_URL */
+/* Microsoft OS 2.0 Platform Capability UUID (Table 3) */
+#define MS_OS_20_UUID  0xDF,0x60,0xDD,0xD8,0x89,0x45,0xC7,0x4C,0x9C,0xD2,0x65,0x9D,0x9E,0x64,0x8A,0x9F
+/* Vendor request code used by BOS capability to fetch MS OS 2.0 descriptor set */
+#define MS_OS_20_VENDOR_CODE         0x20u
+/* Descriptor index for MS OS 2.0 descriptor set (Table 8) */
+#define MS_OS_20_DESCRIPTOR_INDEX    0x07u
+/* Windows version (NTDDI_WINBLUE, 0x06030000) little-endian bytes */
+#define MS_OS_20_WINVER_BYTES        0x00,0x00,0x03,0x06
+/* Size of our MS OS 2.0 descriptor set (see class file) */
+#define MS_OS_20_TOTAL_LENGTH        0xA2,0x00  /* 162 bytes */
 
 #if defined ( __ICCARM__ )
   #pragma data_alignment=4
 #endif
-__ALIGN_BEGIN static const uint8_t USBD_FS_BOSDesc[] __ALIGN_END =
+static const uint8_t USBD_FS_BOSDesc[]  =
 {
   /* BOS Descriptor Header */
   0x05,                 /* bLength */
   USB_DESC_TYPE_BOS,    /* bDescriptorType */
-  0x1D, 0x00,           /* wTotalLength (5 + 24) = 29 bytes */
-  0x01,                 /* bNumDeviceCaps */
+  0x39, 0x00,           /* wTotalLength = 5 + 0x1C (MS OS 2.0) + 0x18 (WebUSB) = 0x39 */
+  0x02,                 /* bNumDeviceCaps */
 
-  /* Device Capability: Platform Capability (WebUSB) */
+  /* Device Capability: Microsoft OS 2.0 Platform Capability */
+  0x1C,                 /* bLength = 28 */
+  0x10,                 /* bDescriptorType = DEVICE CAPABILITY */
+  0x05,                 /* bDevCapabilityType = PLATFORM */
+  0x00,                 /* bReserved */
+  /* PlatformCapabilityUUID (MS OS 2.0) */
+  MS_OS_20_UUID,
+  /* dwWindowsVersion */
+  MS_OS_20_WINVER_BYTES,
+  /* wMSOSDescriptorSetTotalLength */
+  MS_OS_20_TOTAL_LENGTH,
+  /* bVendorCode, bAltEnumCode */
+  MS_OS_20_VENDOR_CODE, 0x00,
+
+  /* Device Capability: WebUSB Platform Capability */
   0x18,                 /* bLength = 24 */
   0x10,                 /* bDescriptorType = DEVICE CAPABILITY */
   0x05,                 /* bDevCapabilityType = PLATFORM */
   0x00,                 /* bReserved */
-  /* PlatformCapabilityUUID (WebUSB UUID) */
-  0x38, 0xB6, 0x08, 0x34, 0xA9, 0x09, 0xA0, 0x47,
-  0x8B, 0xFD, 0xA0, 0x76, 0x88, 0x15, 0xB6, 0x65,
-  /* bcdVersion */
-  LOBYTE(WEBUSB_BCD_VERSION), HIBYTE(WEBUSB_BCD_VERSION),
-  /* bVendorCode, iLandingPage */
-  WEBUSB_VENDOR_CODE, WEBUSB_LANDING_PAGE_IDX
+  /* PlatformCapabilityUUID (WebUSB) */
+  WEBUSB_UUID,
+  /* bcdVersion = 0x0100 */
+  0x00, 0x01,
+  /* bVendorCode (for GET_URL/allowed-origins), iLandingPage = 1 */
+  WEBUSB_VENDOR_CODE, 0x01
 };
 
 uint8_t * USBD_FS_BOSDescriptor(USBD_SpeedTypeDef speed, uint16_t *length)
@@ -293,14 +311,8 @@ uint8_t * USBD_FS_LangIDStrDescriptor(USBD_SpeedTypeDef speed, uint16_t *length)
   */
 uint8_t * USBD_FS_ProductStrDescriptor(USBD_SpeedTypeDef speed, uint16_t *length)
 {
-  if(speed == 0)
-  {
-    USBD_GetString((uint8_t *)USBD_PRODUCT_STRING_FS, USBD_StrDesc, length);
-  }
-  else
-  {
-    USBD_GetString((uint8_t *)USBD_PRODUCT_STRING_FS, USBD_StrDesc, length);
-  }
+  UNUSED(speed);
+  USBD_GetString((uint8_t *)USBD_PRODUCT_STRING_FS, USBD_StrDesc, length);
   return USBD_StrDesc;
 }
 
