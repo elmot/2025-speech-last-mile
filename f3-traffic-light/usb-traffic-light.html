@@ -30,7 +30,7 @@
       <button id="disconnect" disabled>Close</button>
     </div>
     <div id="status" class="muted">Not paired</div>
-    <div class="row" id="trafficControls" aria-hidden="true">
+    <div id="trafficControls" aria-hidden="true">
       <div id="traffic" role="group" aria-label="Traffic light">
         <button id="lamp-red" class="lamp red" aria-pressed="false" aria-label="Red"></button>
         <button id="lamp-yellow" class="lamp yellow" aria-pressed="false" aria-label="Yellow"></button>
@@ -44,7 +44,7 @@
 
     <h3>Log</h3>
     <div id="log" aria-live="polite"></div>
-
+    <div><a href="./">Examples</a></div>
     <script>
       // Update these IDs if you change descriptors (see USB_DEVICE/App/usbd_desc.c)
       const VID = 0x1209;   // 0x0483 (STMicroelectronics)
@@ -94,6 +94,7 @@
       function setUI(phase) {
         const paired = !!device;
         const opened = paired && device.opened;
+        btnPair.disabled = opened;
         btnOpen.disabled = !paired || opened;
         btnClose.disabled = !paired || !opened;
         // Enable/disable traffic controls
