@@ -83,6 +83,12 @@ void Error_Handler(void);
 #define LD8_GPIO_Port GPIOE
 #define LD6_Pin GPIO_PIN_15
 #define LD6_GPIO_Port GPIOE
+#define EXT_TRAFFIC_GR_Pin GPIO_PIN_8
+#define EXT_TRAFFIC_GR_GPIO_Port GPIOC
+#define EXT_TRAFFIC_YL_Pin GPIO_PIN_8
+#define EXT_TRAFFIC_YL_GPIO_Port GPIOA
+#define EXT_TRAFFIC_RED_Pin GPIO_PIN_10
+#define EXT_TRAFFIC_RED_GPIO_Port GPIOA
 #define DM_Pin GPIO_PIN_11
 #define DM_GPIO_Port GPIOA
 #define DP_Pin GPIO_PIN_12
