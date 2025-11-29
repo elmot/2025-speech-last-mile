@@ -1,0 +1,108 @@
+Configuration	BLE_Custom
+STM32CubeMX 	6.16.0
+Date	11/29/2025
+MCU	STM32WB55RGVx
+
+
+
+PERIPHERALS	MODES	FUNCTIONS	PINS
+LPUART1	Asynchronous	LPUART1_RX	PA3
+LPUART1	Asynchronous	LPUART1_TX	PA2
+RCC	Crystal/Ceramic Resonator	RCC_OSC_IN	OSC_IN
+RCC	Crystal/Ceramic Resonator	RCC_OSC_OUT	OSC_OUT
+RCC	Crystal/Ceramic Resonator	RCC_OSC32_IN	PC14-OSC32_IN
+RCC	Crystal/Ceramic Resonator	RCC_OSC32_OUT	PC15-OSC32_OUT
+RF	Activate RF1	RF_RF1	RF1
+RTC	Activate Clock Source	RTC_VS_RTC_Activate	VP_RTC_VS_RTC_Activate
+RTC	Internal WakeUp	RTC_VS_RTC_WakeUp_intern	VP_RTC_VS_RTC_WakeUp_intern
+SYS	Serial Wire	SYS_JTCK-SWCLK	PA14
+SYS	Serial Wire	SYS_JTMS-SWDIO	PA13
+SYS	SysTick	SYS_VS_Systick	VP_SYS_VS_Systick
+USART1	Asynchronous	USART1_RX	PB7
+USART1	Asynchronous	USART1_TX	PB6
+
+
+
+Pin Nb	PINs	FUNCTIONs	LABELs
+3	PC14-OSC32_IN	RCC_OSC32_IN	
+4	PC15-OSC32_OUT	RCC_OSC32_OUT	
+9	PC0	GPIO_Output	TRAFFIC_GR
+10	PC1	GPIO_Output	TRAFFIC_YL
+15	PA0	GPIO_Output	TRAFFIC_GND
+16	PA1	GPIO_Output	TRAFFIC_RD
+17	PA2	LPUART1_TX	
+18	PA3	LPUART1_RX	
+25	PC4	GPIO_EXTI4	SW1_User
+31	RF1	RF_RF1	
+34	OSC_OUT	RCC_OSC_OUT	
+35	OSC_IN	RCC_OSC_IN	
+54	PA13	SYS_JTMS-SWDIO	
+56	PA14	SYS_JTCK-SWCLK	
+61	PD0	GPIO_EXTI0	SW2_User
+62	PD1	GPIO_EXTI1	SW3_User
+66	PB6	USART1_TX	
+67	PB7	USART1_RX	
+PERIPHERALS	MODES	FUNCTIONS	PINS
+LPUART1	Asynchronous	LPUART1_RX	PA3
+LPUART1	Asynchronous	LPUART1_TX	PA2
+RCC	Crystal/Ceramic Resonator	RCC_OSC_IN	OSC_IN
+RCC	Crystal/Ceramic Resonator	RCC_OSC_OUT	OSC_OUT
+RCC	Crystal/Ceramic Resonator	RCC_OSC32_IN	PC14-OSC32_IN
+RCC	Crystal/Ceramic Resonator	RCC_OSC32_OUT	PC15-OSC32_OUT
+RF	Activate RF1	RF_RF1	RF1
+RTC	Activate Clock Source	RTC_VS_RTC_Activate	VP_RTC_VS_RTC_Activate
+RTC	Internal WakeUp	RTC_VS_RTC_WakeUp_intern	VP_RTC_VS_RTC_WakeUp_intern
+SYS	Serial Wire	SYS_JTCK-SWCLK	PA14
+SYS	Serial Wire	SYS_JTMS-SWDIO	PA13
+SYS	SysTick	SYS_VS_Systick	VP_SYS_VS_Systick
+USART1	Asynchronous	USART1_RX	PB7
+USART1	Asynchronous	USART1_TX	PB6
+
+
+
+Pin Nb	PINs	FUNCTIONs	LABELs
+3	PC14-OSC32_IN	RCC_OSC32_IN	
+4	PC15-OSC32_OUT	RCC_OSC32_OUT	
+9	PC0	GPIO_Output	TRAFFIC_GR
+10	PC1	GPIO_Output	TRAFFIC_YL
+15	PA0	GPIO_Output	TRAFFIC_GND
+16	PA1	GPIO_Output	TRAFFIC_RD
+17	PA2	LPUART1_TX	
+18	PA3	LPUART1_RX	
+25	PC4	GPIO_EXTI4	SW1_User
+31	RF1	RF_RF1	
+34	OSC_OUT	RCC_OSC_OUT	
+35	OSC_IN	RCC_OSC_IN	
+54	PA13	SYS_JTMS-SWDIO	
+56	PA14	SYS_JTCK-SWCLK	
+61	PD0	GPIO_EXTI0	SW2_User
+62	PD1	GPIO_EXTI1	SW3_User
+66	PB6	USART1_TX	
+67	PB7	USART1_RX	
+
+
+
+SOFTWARE PROJECT
+
+Project Settings : 
+Project Name : BLE_Custom
+Project Folder : D:\projects\2025-speech-last-mile\BLE_Custom
+Toolchain / IDE : CMake
+Firmware Package Name and Version : STM32Cube FW_WB V1.24.0
+
+
+Code Generation Settings : 
+STM32Cube MCU packages and embedded software packs : Copy only the necessary library files
+Generate peripheral initialization as a pair of '.c/.h' files per peripheral : No
+Backup previously generated files when re-generating : No
+Delete previously generated files when not re-generated : Yes
+Set all free pins as analog (to optimize the power consumption) : No
+
+
+Toolchains Settings : 
+Compiler Optimizations : 
+
+
+
+
+
