@@ -10,10 +10,13 @@
       fieldset { margin-top: 1rem; }
       input[type="text"] { width: 14rem; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
       #log { white-space: pre-wrap; background: #111; color: #ddd; padding: 0.75rem; border-radius: 6px; height: 14rem; overflow: auto; }
-      .ok { color: #80ff80; }
-      .err { color: #ff8080; }
       .muted { opacity: 0.8 }
       .row { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+      /*Dynamic classes*/
+      /*noinspection CssUnusedSymbol*/
+      .ok { color: #80ff80; }
+      /*noinspection CssUnusedSymbol*/
+      .err { color: #ff8080; }
     </style>
   </head>
   <body>
@@ -66,10 +69,6 @@
       const btnOpen = el('connect');
       const btnClose = el('disconnect');
       const trafficControls = el('trafficControls');
-      const ifNum = el('ifNum');
-      const epOut = el('epOut');
-      const epIn = el('epIn');
-      const cfgNum = el('cfgNum');
       const lampRed = el('lamp-red');
       const lampYellow = el('lamp-yellow');
       const lampGreen = el('lamp-green');
@@ -91,7 +90,7 @@
         logEl.scrollTop = logEl.scrollHeight;
       }
 
-      function setUI(phase) {
+      function setUI() {
         const paired = !!device;
         const opened = paired && device.opened;
         btnPair.disabled = opened;
@@ -104,12 +103,6 @@
           ? `Connected to ${device.productName} (${device.vendorId.toString(16)}:${device.productId.toString(16)})`
           : (paired ? `Paired: ${device.productName}` : 'Not paired');
         renderLamps();
-      }
-
-      function hexByteToNum(txt) {
-        const n = parseInt(txt.trim(), 16);
-        if (Number.isNaN(n) || n < 0 || n > 0xFF) throw new Error('hex byte expected (00-FF)');
-        return n;
       }
 
       async function pair() {
@@ -133,10 +126,6 @@
         if (!device) return;
         try {
           // Apply any UI changes to interface/endpoint selection
-          if (ifNum) INTERFACE_NUMBER = parseInt(ifNum.value || `${INTERFACE_NUMBER}`, 10) || INTERFACE_NUMBER;
-          if (epOut) ENDPOINT_OUT = parseInt(epOut.value || `${ENDPOINT_OUT}`, 10) || ENDPOINT_OUT;
-          if (epIn) ENDPOINT_IN = parseInt(epIn.value || `${ENDPOINT_IN}`, 10) || ENDPOINT_IN;
-          if (cfgNum) CONFIG_NUMBER = parseInt(cfgNum.value || `${CONFIG_NUMBER}`, 10) || CONFIG_NUMBER;
 
           await device.open();
           if (!device.configuration) {
@@ -236,10 +225,6 @@
           return;
         }
         // Initialize UI fields from params
-        if (ifNum) ifNum.value = String(INTERFACE_NUMBER);
-        if (epOut) epOut.value = String(ENDPOINT_OUT);
-        if (epIn) epIn.value = String(ENDPOINT_IN);
-        if (cfgNum) cfgNum.value = String(CONFIG_NUMBER);
         try {
           const devices = await navigator.usb.getDevices();
           const dev = devices.find(d => d.vendorId === VID && d.productId === PID);
@@ -281,7 +266,8 @@
     </script>
 
     <hr />
-    <style>
+  </body>
+  <style>
       /* Traffic light styles */
       #traffic {
         width: 120px;
@@ -305,12 +291,16 @@
         cursor: pointer;
       }
       .lamp:disabled { cursor: not-allowed; opacity: 0.6; }
-      .lamp.red.on { background: radial-gradient(circle at 30% 30%, #ff8a80, #d50000); box-shadow: 0 0 12px 6px #ff1744aa, inset 0 8px 16px #000a; }
-      .lamp.yellow.on { background: radial-gradient(circle at 30% 30%, #ffe57f, #ffab00); box-shadow: 0 0 12px 6px #ffd600aa, inset 0 8px 16px #000a; }
-      .lamp.green.on { background: radial-gradient(circle at 30% 30%, #a5d6a7, #00c853); box-shadow: 0 0 12px 6px #00e676aa, inset 0 8px 16px #000a; }
+
       .lamp.red { background: radial-gradient(circle at 30% 30%, #733, #300); }
       .lamp.yellow { background: radial-gradient(circle at 30% 30%, #664, #331); }
       .lamp.green { background: radial-gradient(circle at 30% 30%, #364, #132); }
+      /*Dynamic classes*/
+      /*noinspection CssUnusedSymbol*/
+      .lamp.red.on { background: radial-gradient(circle at 30% 30%, #ff8a80, #d50000); box-shadow: 0 0 12px 6px #ff1744aa, inset 0 8px 16px #000a; }
+      /*noinspection CssUnusedSymbol */
+      .lamp.yellow.on { background: radial-gradient(circle at 30% 30%, #ffe57f, #ffab00); box-shadow: 0 0 12px 6px #ffd600aa, inset 0 8px 16px #000a; }
+      /*noinspection CssUnusedSymbol */
+      .lamp.green.on { background: radial-gradient(circle at 30% 30%, #a5d6a7, #00c853); box-shadow: 0 0 12px 6px #00e676aa, inset 0 8px 16px #000a; }
     </style>
-  </body>
   </html>
